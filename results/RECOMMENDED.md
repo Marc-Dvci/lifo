@@ -1,9 +1,9 @@
 # Recommended parameters (run 02)
 
-Simulated, not market data. Command: `python -m lifo.refresh --seeds 10 --workers 4`. Seeds 1 to 10. Commit `347b122-dirty`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots. Runs: 4000, in `results/refresh.csv`.
+Simulated, not market data. Command: `python -m lifo.refresh --seeds 10 --workers 4`. Seeds 1 to 10. Commit `500881d`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots. Runs: 4000, in `results/refresh.csv`; runtime 195 s.
 
 
-GATE_BPS 500, EPOCH_LENGTH 10 min, **VINTAGE_LENGTH 24 h**, SELL_FEE_BPS 50, no buy fee, no young-token fee, no minimum age. The gate, epoch and fee are the ones chosen by the 144-set grid of run 01 (`results/sweep.csv`, run at a 1 h vintage; that grid has not been run again). The only change in run 02 is the vintage, from 1 h to 24 h; the reasons are in `results/REFRESH.md`.
+GATE_BPS 500, EPOCH_LENGTH 10 min, **VINTAGE_LENGTH 24 h**, SELL_FEE_BPS 50, no buy fee, no young-token fee, no minimum age. The gate, epoch and fee are the ones chosen by the 144-set grid of run 01 (`python -m lifo.sweep`, `results/SWEEP.md`), where a 1 h vintage ranked first. The only change in run 02 is the vintage, from 1 h to 24 h; the reasons are in `results/REFRESH.md`. The scenario tables, `results/SENSITIVITY.md` and the figures are drawn at this set.
 
 
 Late group, NEAR back per NEAR invested, mean of 10 seeds, same agents and seeds under both markets:
