@@ -210,12 +210,50 @@ def test_a_transfer_call_refund_is_limited_to_what_the_receiver_still_holds() ->
     assert m.balance("dex") == 0
 
 
-def test_a_transfer_call_refund_takes_the_receivers_newest_tokens() -> None:
+def test_a_transfer_call_refund_takes_the_receivers_oldest_tokens_and_never_returns_a_newer_vintage() -> None:
     m = three_vintages()
     m.buy("dex", 1_000, at(6))  # dex holds vintage 3
     m.transfer_call("a", "dex", 100, 100, at(6))
-    assert [v for v, _ in held(m, "dex")] == [2, 3]  # the refund came out of the newest lot: vintage 2 stays
-    assert held(m, "dex")[0] == (2, 100)
+    assert held(m, "dex") == [(3, m.balance("dex"))]  # the refund came out of the oldest lot: vintage 3 stays whole
+    assert held(m, "a")[-1][0] == 2
+
+
+def test_a_refund_after_the_receiver_moved_the_tokens_turns_no_old_token_into_a_newer_vintage() -> None:
+    """The review's sequence: the receiver passes on the vintage-1 tokens it got, then reports them all unused."""
+    m = pool(epoch_length=10, vintage_length=10, launch_time=0)
+    assert m.buy("receiver", 1_000, 0) == 90_909
+    assert m.buy("sender", 1_000, 10) == 75_757
+    refund = m.transfer_call("sender", "receiver", 75_757, 75_757, 10, moves=[("third", 75_757)])
+    assert refund == 75_757
+    assert held(m, "third") == [(1, 75_757)]
+    assert held(m, "sender") == [(0, 75_757)], "the refund is vintage-0 tokens and stays vintage 0"
+    assert held(m, "receiver") == [(0, 90_909 - 75_757)]
+    newer = sum(a for lots in m.lots.values() for v, a in lots if v >= 1)
+    assert newer == 75_757, "only the tokens bought at vintage 1 are vintage 1"
+
+
+def test_old_tokens_sent_to_a_pool_that_refunds_come_back_old_and_leave_the_pools_newer_lots() -> None:
+    m = pool(epoch_length=10, vintage_length=10, launch_time=0)
+    m.buy("a", 1_000, 0)  # vintage 0
+    m.buy("exchange", 5_000, 50)  # vintage 5, the pool's own newer stock
+    stock = m.balance("exchange")
+    assert m.transfer_call("a", "exchange", 1_000, 1_000, 50) == 1_000
+    assert held(m, "a") == [(0, m.balance("a"))]
+    assert held(m, "exchange") == [(5, stock)]
+    # the pool passes 1,000 on (its newest first, B1), then still refunds 1,000: they come out of its oldest lot
+    assert m.transfer_call("a", "exchange", 1_000, 1_000, 50, moves=[("b", 1_000)]) == 1_000
+    assert held(m, "a") == [(0, m.balance("a"))], "never the pool's vintage 5"
+    assert held(m, "b") == [(5, 1_000)]
+    assert held(m, "exchange") == [(5, stock - 1_000)]
+
+
+def test_a_refund_out_of_lots_newer_than_the_oldest_sent_is_given_the_oldest_vintage_sent() -> None:
+    """The receiver passed every token on and bought new ones (from `ft_on_transfer`) before the refund."""
+    m = pool(epoch_length=10, vintage_length=10, launch_time=0)
+    m.buy("a", 1_000, 0)
+    m.buy("receiver", 1_000, 50)  # vintage 5, bought after the transfer left the receiver empty
+    assert m._refund("a", "receiver", 500, 0, 500) == (500, [[0, 500]])
+    assert held(m, "a") == [(0, m.balance("a"))]
 
 
 @pytest.mark.parametrize(

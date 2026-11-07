@@ -98,11 +98,16 @@ class Market(RuleBasedStateMachine):
         now = self.advance(dt)
         self.run(lambda: self.m.transfer(sender, receiver, max(self.m.balance(sender) * share // 1000, 1), now))
 
-    @rule(sender=who, receiver=who, share=fraction, unused=fraction, dt=step)
-    def transfer_call(self, sender: str, receiver: str, share: int, unused: int, dt: int) -> None:
+    @rule(sender=who, receiver=who, third=who, share=fraction, passed=fraction, unused=fraction, dt=step)
+    def transfer_call(
+        self, sender: str, receiver: str, third: str, share: int, passed: int, unused: int, dt: int
+    ) -> None:
+        """B4' and B5: the receiver may pass on part of its balance in `ft_on_transfer`, before the refund."""
         now = self.advance(dt)
         amount = max(self.m.balance(sender) * share // 1000, 1)
-        self.run(lambda: self.m.transfer_call(sender, receiver, amount, amount * unused // 1000, now))
+        moved = (self.m.balance(receiver) + amount) * passed // 1000
+        moves = [(third, moved)] if moved and third != receiver else []
+        self.run(lambda: self.m.transfer_call(sender, receiver, amount, amount * unused // 1000, now, moves))
 
     @rule(account=who, dt=step)
     def claim(self, account: str, dt: int) -> None:

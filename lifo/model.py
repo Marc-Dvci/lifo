@@ -9,7 +9,7 @@ Amounts: NEAR in yoctoNEAR, tokens in the smallest unit. Time: nanoseconds since
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any, TypeVar, cast
@@ -376,15 +376,41 @@ class Lifo:
         return self._transfer(sender, receiver, amount)
 
     @atomic
-    def transfer_call(self, sender: str, receiver: str, amount: int, unused: int, now: int) -> int:
-        """B4. A transfer whose receiver hands back `unused` tokens. Returns the amount refunded to the sender."""
+    def transfer_call(
+        self,
+        sender: str,
+        receiver: str,
+        amount: int,
+        unused: int,
+        now: int,
+        moves: Sequence[tuple[str, int]] = (),
+    ) -> int:
+        """B4'. A transfer whose receiver hands back `unused` tokens. Returns the amount refunded to the sender.
+
+        `moves` are the transfers `(to, amount)` the receiver makes in `ft_on_transfer`, before the refund.
+        """
         self._begin(now, sender)
         moved = self._transfer(sender, receiver, amount)
+        for to, a in moves:
+            self._begin(now, receiver)
+            self._transfer(receiver, to, a)
+        return self._refund(sender, receiver, amount, min(v for v, _ in moved), unused)[0]
+
+    def _refund(self, sender: str, receiver: str, amount: int, oldest: int, unused: int) -> tuple[int, list[list[int]]]:
+        """B4': takes `min(unused, amount, receiver's balance)` from the receiver's oldest lots; each token goes back
+        with `min(its vintage, oldest sent)`. Returns the refund and the lots given, oldest first."""
         refund = min(max(unused, 0), amount, self.balance(receiver))
+        given: list[list[int]] = []
         if refund:
-            self._take(receiver, refund)
-            self._add(sender, min(v for v, _ in moved), refund)
-        return refund
+            for v, a in self._take_oldest(receiver, refund):
+                v = min(v, oldest)
+                if given and given[-1][0] == v:
+                    given[-1][1] += a
+                else:
+                    given.append([v, a])
+            for v, a in given:
+                self._add(sender, v, a)
+        return refund, given
 
     @atomic
     def claim(self, account: str, now: int) -> list[Claim]:
@@ -519,6 +545,21 @@ class Lifo:
             else:
                 lots[i][1] = a - got
             i -= 1
+        return taken
+
+    def _take_oldest(self, account: str, amount: int) -> list[tuple[int, int]]:
+        """B4': removes `amount` from the oldest lots first; returns the (vintage, amount) taken, oldest first."""
+        lots = self.lots.get(account, [])
+        taken = []
+        while amount:
+            v, a = lots[0]
+            got = min(a, amount)
+            taken.append((v, got))
+            amount -= got
+            if got == a:
+                lots.pop(0)
+            else:
+                lots[0][1] = a - got
         return taken
 
     def _add(self, account: str, vintage: int, amount: int) -> None:

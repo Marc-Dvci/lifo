@@ -83,6 +83,8 @@ class Recorder:
     def do(self, op: str, **args: Any) -> Any:
         call: Callable[..., Any] = getattr(self.m, op)
         step: Step = {"op": op, **{k: (str(v) if isinstance(v, int) and k != "now" else v) for k, v in args.items()}}
+        if "moves" in args:
+            step["moves"] = [[to, str(a)] for to, a in args["moves"]]
         try:
             result = call(**args)
             step["result"] = encode_result(result)
@@ -164,7 +166,42 @@ def edge_transfer_call() -> dict[str, Any]:
     r.do("transfer_call", sender="b", receiver="dex", amount=500, unused=10**6, now=t(p, 4))
     r.do("transfer", sender="dex", receiver="c", amount=r.m.balance("dex") - 3, now=t(p, 5))
     r.do("transfer_call", sender="c", receiver="dex", amount=10, unused=99, now=t(p, 6))
-    r.do("transfer_call", sender="a", receiver="dex", amount=7, unused=0, now=t(p, 6))
+    return r.case()
+
+
+def edge_vintage_above_u32() -> dict[str, Any]:
+    """Vintages past 2^32 (1 ns epochs and vintages): a later buy is newer and paid first, nothing wraps to 0."""
+    p = small(epoch_length=1, vintage_length=1, launch_time=0, max_lots=4)
+    r = Recorder("vintages above 2^32", p)
+    r.do("buy", account="a", deposit=1_000, now=5)
+    r.do("buy", account="b", deposit=1_000, now=2**32 + 5)
+    r.do("transfer", sender="b", receiver="a", amount=1_000, now=2**32 + 5)
+    r.do("request_sell", account="a", amount=r.m.balance("a"), now=2**32 + 6)
+    r.do("request_sell", account="b", amount=r.m.balance("b"), now=2**32 + 6)
+    r.do("claim", account="a", now=2**32 + 7)
+    r.do("claim", account="b", now=2**32 + 7)
+    return r.case()
+
+
+def edge_refund_after_move() -> dict[str, Any]:
+    """B4': the receiver passes the tokens on before the refund (the review's sequence), and a pool with newer stock."""
+    p = small(epoch_length=10, vintage_length=10, launch_time=0, max_lots=4)
+    r = Recorder("refund after the receiver moved the tokens", p)
+    r.do("buy", account="receiver", deposit=1_000, now=0)
+    r.do("buy", account="sender", deposit=1_000, now=10)
+    r.do(
+        "transfer_call",
+        sender="sender",
+        receiver="receiver",
+        amount=75_757,
+        unused=75_757,
+        now=10,
+        moves=[["third", 75_757]],
+    )
+    r.do("buy", account="a", deposit=1_000, now=20)
+    r.do("buy", account="exchange", deposit=5_000, now=50)
+    r.do("transfer_call", sender="a", receiver="exchange", amount=1_000, unused=1_000, now=50)
+    r.do("transfer_call", sender="a", receiver="exchange", amount=1_000, unused=1_000, now=50, moves=[["b", 1_000]])
     return r.case()
 
 
@@ -237,6 +274,8 @@ def edge_cases() -> list[dict[str, Any]]:
         edge_boundary_pro_rata(),
         edge_lot_merges(),
         edge_transfer_call(),
+        edge_refund_after_move(),
+        edge_vintage_above_u32(),
         edge_errors(),
         edge_rounding_dust(),
         edge_crash_realistic(),
@@ -276,7 +315,17 @@ def random_case(rng: random.Random, index: int) -> dict[str, Any]:
             r.do("transfer", sender=who, receiver=other, amount=rng.randint(1, bal), now=now)
         elif roll < 0.8:
             amount = rng.randint(1, bal)
-            r.do("transfer_call", sender=who, receiver=other, amount=amount, unused=rng.randint(0, amount), now=now)
+            passed = rng.choice([0, 0, rng.randint(1, r.m.balance(other) + amount)])
+            moves = [[who if rng.random() < 0.5 else next(x for x in accounts if x not in (who, other)), passed]]
+            r.do(
+                "transfer_call",
+                sender=who,
+                receiver=other,
+                amount=amount,
+                unused=rng.randint(0, amount),
+                now=now,
+                **({"moves": moves} if passed else {}),
+            )
         elif roll < 0.92:
             r.do("claim", account=who, now=now)
         else:
