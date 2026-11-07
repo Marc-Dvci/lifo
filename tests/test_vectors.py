@@ -42,6 +42,8 @@ def replay_args(step: dict[str, Any]) -> dict[str, Any]:
         if key in ("op", "result", "error", "state"):
             continue
         out[key] = int(value) if key in ("deposit", "amount", "unused", "now") else value
+        if key == "moves":
+            out[key] = [(to, int(a)) for to, a in value]
     return out
 
 
