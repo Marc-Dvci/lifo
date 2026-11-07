@@ -10,3 +10,4 @@
 # data/** linguist-generated
 # vendor/** linguist-vendored
 vectors/*.json linguist-generated
+results/sweep.csv linguist-generated
