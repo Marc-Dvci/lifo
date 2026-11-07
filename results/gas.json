@@ -1,9 +1,9 @@
 {
   "command": "cd e2e && node gas.mjs",
-  "commit": "f37070c",
+  "commit": "6d56955",
   "sandbox": "2.14.0",
-  "wasm_sha256": "3dd9d8fa997cf37487d83b4ea98cda269b509680e8db5479ef192ef739bf252b",
-  "runtime_s": 659,
+  "wasm_sha256": "de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a",
+  "runtime_s": 658,
   "epoch_s": 6,
   "rows": [
     {
@@ -11,104 +11,104 @@
       "requests": 1,
       "vintages_in_settlement": 1,
       "gate_bound": true,
-      "settle_tgas": 1.855785431721,
-      "settle_tx_tgas": 2.387408963941,
+      "settle_tgas": 1.858193893367,
+      "settle_tx_tgas": 2.389817425587,
       "request_tgas": {
-        "min": 1.937893225042,
-        "mean": 1.937893225042,
-        "max": 1.937893225042
+        "min": 1.939310518134,
+        "mean": 1.939310518134,
+        "max": 1.939310518134
       },
       "claim_tgas": {
-        "min": 2.399015118918,
-        "mean": 2.399015118918,
-        "max": 2.399015118918
+        "min": 2.400132660858,
+        "mean": 2.400132660858,
+        "max": 2.400132660858
       },
       "buy_tgas": {
-        "min": 3.165516266361,
-        "mean": 3.165516266361,
-        "max": 3.165516266361
+        "min": 3.168283380117,
+        "mean": 3.168283380117,
+        "max": 3.168283380117
       },
       "balance_covers_reserve_unclaimed_and_storage": true,
-      "balance_yocto": "31048289234193849200000000",
-      "reserve_plus_unclaimed_plus_storage_yocto": "3069840000000000000000000"
+      "balance_yocto": "31048276593354311600000000",
+      "reserve_plus_unclaimed_plus_storage_yocto": "3087330000000000000000000"
     },
     {
       "vintages_planned": 1,
       "requests": 48,
       "vintages_in_settlement": 1,
       "gate_bound": true,
-      "settle_tgas": 1.87142664948,
-      "settle_tx_tgas": 2.4030501817,
+      "settle_tgas": 1.873835111126,
+      "settle_tx_tgas": 2.405458643346,
       "request_tgas": {
-        "min": 1.953670020969,
-        "mean": 1.958443028778271,
-        "max": 1.965719475268
+        "min": 1.955658009837,
+        "mean": 1.9604088113348555,
+        "max": 1.967571183528
       },
       "claim_tgas": {
-        "min": 2.401768406873,
-        "mean": 2.4281819009022505,
-        "max": 2.467703909801
+        "min": 2.402751016829,
+        "mean": 2.4299311206847487,
+        "max": 2.463623835359
       },
       "buy_tgas": {
-        "min": 3.160950861366,
-        "mean": 3.162580750028187,
-        "max": 3.175888766541
+        "min": 3.163713861342,
+        "mean": 3.165279472191688,
+        "max": 3.178569490917
       },
       "balance_covers_reserve_unclaimed_and_storage": true,
-      "balance_yocto": "80398288992856832000000023",
-      "reserve_plus_unclaimed_plus_storage_yocto": "47778500000000000000000023"
+      "balance_yocto": "80398276352017294400000023",
+      "reserve_plus_unclaimed_plus_storage_yocto": "47797400000000000000000023"
     },
     {
       "vintages_planned": 16,
       "requests": 48,
       "vintages_in_settlement": 16,
       "gate_bound": true,
-      "settle_tgas": 2.347524975423,
-      "settle_tx_tgas": 2.879148507643,
+      "settle_tgas": 2.357408312309,
+      "settle_tx_tgas": 2.889031844529,
       "request_tgas": {
-        "min": 1.948880770489,
-        "mean": 1.981322811514209,
-        "max": 1.995894977805
+        "min": 1.953367889245,
+        "mean": 1.9861014467022908,
+        "max": 2.002796774725
       },
       "claim_tgas": {
-        "min": 2.159669176442,
-        "mean": 2.2453509338461877,
-        "max": 2.50402544936
+        "min": 2.165106930413,
+        "mean": 2.257306280931688,
+        "max": 2.515975020584
       },
       "buy_tgas": {
-        "min": 3.161071535901,
-        "mean": 3.180131046333999,
-        "max": 3.197187229773
+        "min": 3.163838649657,
+        "mean": 3.1828297684975,
+        "max": 3.199867954149
       },
       "balance_covers_reserve_unclaimed_and_storage": true,
-      "balance_yocto": "80398288979519814800000002",
-      "reserve_plus_unclaimed_plus_storage_yocto": "47778500000000000000000002"
+      "balance_yocto": "80398276338680277200000002",
+      "reserve_plus_unclaimed_plus_storage_yocto": "47797400000000000000000002"
     },
     {
       "vintages_planned": 48,
       "requests": 48,
       "vintages_in_settlement": 48,
       "gate_bound": true,
-      "settle_tgas": 3.380733491945,
-      "settle_tx_tgas": 3.912357024165,
+      "settle_tgas": 3.410366007575,
+      "settle_tx_tgas": 3.941989539795,
       "request_tgas": {
-        "min": 1.948880770489,
-        "mean": 2.0062043034423547,
-        "max": 2.064311916195
+        "min": 1.948622506576,
+        "mean": 2.0160939278833543,
+        "max": 2.082033356439
       },
       "claim_tgas": {
-        "min": 2.224818996378,
-        "mean": 2.3915961677235607,
-        "max": 2.65408049598
+        "min": 2.236917548486,
+        "mean": 2.4272075931686863,
+        "max": 2.68996666898
       },
       "buy_tgas": {
-        "min": 3.174751535901,
-        "mean": 3.1930415419361258,
-        "max": 3.197584668024
+        "min": 3.177518649657,
+        "mean": 3.195740264099625,
+        "max": 3.2002653924
       },
       "balance_covers_reserve_unclaimed_and_storage": true,
-      "balance_yocto": "80398288979519814800000001",
-      "reserve_plus_unclaimed_plus_storage_yocto": "47778100000000000000000001"
+      "balance_yocto": "80398276338680277200000001",
+      "reserve_plus_unclaimed_plus_storage_yocto": "47796920000000000000000001"
     }
   ]
 }

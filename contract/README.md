@@ -95,9 +95,9 @@ These are worst cases. The test `a5_contract_storage_is_covered_by_what_accounts
 | Vintages in the settlement | Requests | Gate bound | `settle` | `claim`, mean (max) | `request_sell`, mean (max) |
 |---|---|---|---|---|---|
 | 1 | 1 | yes | 1.86 | 2.40 (2.40) | 1.94 (1.94) |
-| 1 | 48 | yes | 1.87 | 2.43 (2.47) | 1.96 (1.97) |
-| 16 | 48 | yes | 2.35 | 2.25 (2.50) | 1.98 (2.00) |
-| 48 | 48 | yes | 3.38 | 2.39 (2.65) | 2.01 (2.06) |
+| 1 | 48 | yes | 1.87 | 2.43 (2.46) | 1.96 (1.97) |
+| 16 | 48 | yes | 2.36 | 2.26 (2.52) | 1.99 (2.00) |
+| 48 | 48 | yes | 3.41 | 2.43 (2.69) | 2.02 (2.08) |
 
 A settlement costs the same for 1 and 48 requests and about 0.03 Tgas more per vintage (C8). At the launch vintage of 24 hours, 48 vintages are 48 days of purchases. A `buy` cost 3.16 to 3.20 Tgas. In every row the contract's balance covered its reserve, the unclaimed payouts and its storage.
 
@@ -108,7 +108,7 @@ bash e2e/sandbox.sh start        # in WSL or Linux; SANDBOX_DIR and GLIBC_DIR ar
 cd e2e && npm install && node gas.mjs
 bash e2e/sandbox.sh stop
 ```
-The gas figures above were measured on the build before 64-bit vintages and the B4' refund; they were not rerun for the current wasm.
+The figures above were measured on the current wasm (SHA-256 `de5cb631...675a`, commit `6d56955`); the run is recorded in [`results/gas.md`](../results/gas.md).
 
 ## Initialisation and deposit checks on the sandbox
 
