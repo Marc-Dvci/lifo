@@ -26,6 +26,7 @@ E_MAX_SUPPLY = "max supply reached"
 E_BALANCE = "not enough tokens"
 E_SELF = "sender is receiver"
 E_NOTHING = "nothing to claim"
+E_YOUNG = "tokens too young"
 
 
 class LifoError(Exception):
@@ -88,6 +89,10 @@ class Params:
     vintage_length: int
     launch_time: int
     max_lots: int
+    buy_fee_bps: int = 0  # M1: stays in the reserve
+    young_age: int = 0  # M2: a vintage is young until YOUNG_AGE after it ended
+    young_fee_bps: int = 0  # M2: extra sell fee on young tokens, stays in the reserve
+    min_age: int = 0  # M4: a vintage can be requested for sale only MIN_AGE after it ended (0: no limit)
 
     def __post_init__(self) -> None:
         ok = (
@@ -100,6 +105,11 @@ class Params:
             and self.vintage_length % self.epoch_length == 0
             and self.launch_time >= 0
             and self.max_lots >= 1
+            and 0 <= self.buy_fee_bps < BPS
+            and 0 <= self.young_fee_bps < BPS
+            and self.young_age >= 0
+            and self.min_age >= 0
+            and (self.young_fee_bps == 0 or self.young_age > 0)
         )
         if not ok:
             raise LifoError(E_PARAMS)
@@ -121,7 +131,7 @@ def default_params(**overrides: int) -> Params:
         "gate_bps": 500,
         "sell_fee_bps": 50,
         "epoch_length": 10 * MINUTE,
-        "vintage_length": HOUR,
+        "vintage_length": DAY,
         "launch_time": 0,
         "max_lots": 16,
     }
@@ -161,6 +171,8 @@ class Settlement:
     open_requests: int
     paid_left: int
     dust_returned: int = 0
+    gross: int = 0  # what the curve gives for the filled tokens, with the base fee (the gate counts this)
+    eff: int = 0  # filled tokens weighted by 10000 minus the young fee: the denominator of each payout (M2)
 
 
 @dataclass(frozen=True)
@@ -238,22 +250,58 @@ class Lifo:
     def balance(self, account: str) -> int:
         return sum(a for _, a in self.lots.get(account, []))
 
+    def buy_fee(self, deposit: int) -> int:
+        """M1: the part of a deposit that stays in the reserve without buying tokens (rounded up)."""
+        return ceil_div(deposit * self.params.buy_fee_bps, BPS)
+
     def quote_buy(self, deposit: int) -> int:
-        return buy_out(self.x, self.y, deposit)
+        return buy_out(self.x, self.y, deposit - self.buy_fee(deposit))
+
+    def is_young(self, epoch: int, vintage: int) -> bool:
+        """M2: tokens of `vintage` pay the young fee when sold in `epoch`. Every token of a vintage has the same status."""
+        p = self.params
+        return p.young_fee_bps > 0 and epoch * p.epoch_length < (vintage + 1) * p.vintage_length + p.young_age
+
+    def max_sellable_vintage(self, now: int) -> int | None:
+        """M4: the newest vintage that may be requested for sale at `now`; None when there is no limit."""
+        p = self.params
+        if p.min_age == 0:
+            return None
+        return (now - p.launch_time - p.min_age) // p.vintage_length - 1
+
+    def sellable(self, account: str, now: int) -> int:
+        """Tokens of `account` that a sell request may take at `now` (M4)."""
+        vmax = self.max_sellable_vintage(now)
+        return sum(a for v, a in self.lots.get(account, []) if vmax is None or v <= vmax)
+
+    def payout(self, tokens_by_vintage: dict[int, int], epoch: int, gross_paid: int) -> int:
+        """M2: what the sellers of these tokens (filled in one batch) receive of the curve's `gross_paid`."""
+        total = sum(tokens_by_vintage.values())
+        if not total:
+            return 0
+        eff = (
+            total * BPS
+            - sum(a for v, a in tokens_by_vintage.items() if self.is_young(epoch, v)) * self.params.young_fee_bps
+        )
+        return gross_paid * eff // (total * BPS)
 
     def result(self, request_id: int) -> Claim:
         """What a settled request is owed, from the epoch's per-vintage aggregates (C8)."""
         r = self.requests[request_id]
         s = self.settlements[r.epoch]
         filled = 0
+        young = 0
         returned = []
         for v, a, start in r.portions:
             f_v, r_v = s.filled[v], s.requested[v]
             got = (start + a) * f_v // r_v - start * f_v // r_v
             filled += got
+            if self.is_young(r.epoch, v):
+                young += got
             if a > got:
                 returned.append((v, a - got))
-        paid = filled * s.paid // s.total_filled if s.total_filled else 0
+        eff = filled * BPS - young * self.params.young_fee_bps
+        paid = eff * s.paid // s.eff if s.eff else 0
         return Claim(r.id, filled, paid, tuple(returned))
 
     def state(self) -> dict[str, Any]:
@@ -290,7 +338,7 @@ class Lifo:
         self._begin(now, account)
         if deposit <= 0:
             raise LifoError(E_ZERO)
-        out = self.quote_buy(deposit)
+        out = self.quote_buy(deposit)  # the buy fee (M1) buys nothing and stays in the reserve
         if out <= 0:
             raise LifoError(E_BUY_TOO_SMALL)
         if self.supply + out > self.params.max_supply:
@@ -309,7 +357,7 @@ class Lifo:
             raise LifoError(E_ZERO)
         e = self.epoch(now)
         portions = []
-        for v, a in self._take(account, amount):
+        for v, a in self._take(account, amount, self.max_sellable_vintage(now)):
             start = self.open_requested.get(v, 0)
             self.open_requested[v] = start + a
             portions.append((v, a, start))
@@ -383,12 +431,27 @@ class Lifo:
         for v in sorted(requested, reverse=True):
             filled[v] = min(requested[v], left)
             left -= filled[v]
-        paid = sell_paid(self.x, self.y, total_filled, fee)
+        gross_paid = sell_paid(self.x, self.y, total_filled, fee)
+        paid = self.payout(filled, e, gross_paid)  # the young fee (M2) never leaves the reserve
+        eff = total_filled * BPS - sum(a for v, a in filled.items() if self.is_young(e, v)) * self.params.young_fee_bps
         self.reserve -= paid
         self.supply -= total_filled
         self.unclaimed_near += paid
         self.settlements[e] = Settlement(
-            e, cap, max_fill, requested, filled, total, total_filled, paid, bound, self.open_count, paid
+            e,
+            cap,
+            max_fill,
+            requested,
+            filled,
+            total,
+            total_filled,
+            paid,
+            bound,
+            self.open_count,
+            paid,
+            0,
+            gross_paid,
+            eff,
         )
         self.open_epoch = None
         self.open_requested = {}
@@ -431,21 +494,31 @@ class Lifo:
             self._add(receiver, v, a)
         return moved
 
-    def _take(self, account: str, amount: int) -> list[tuple[int, int]]:
-        """B1. Removes `amount` from the newest lots first; returns the (vintage, amount) taken, newest first."""
+    def _take(self, account: str, amount: int, max_vintage: int | None = None) -> list[tuple[int, int]]:
+        """B1. Removes `amount` from the newest lots first; returns the (vintage, amount) taken, newest first.
+
+        With `max_vintage` (M4) only lots of that vintage or older are eligible.
+        """
         lots = self.lots.get(account, [])
         if sum(a for _, a in lots) < amount:
             raise LifoError(E_BALANCE)
+        if max_vintage is not None and sum(a for v, a in lots if v <= max_vintage) < amount:
+            raise LifoError(E_YOUNG)
         taken = []
+        i = len(lots) - 1
         while amount:
-            v, a = lots[-1]
+            v, a = lots[i]
+            if max_vintage is not None and v > max_vintage:
+                i -= 1
+                continue
             got = min(a, amount)
             taken.append((v, got))
             amount -= got
             if got == a:
-                lots.pop()
+                lots.pop(i)
             else:
-                lots[-1][1] = a - got
+                lots[i][1] = a - got
+            i -= 1
         return taken
 
     def _add(self, account: str, vintage: int, amount: int) -> None:

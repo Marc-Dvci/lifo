@@ -27,6 +27,7 @@ step = st.integers(min_value=0, max_value=15)  # time advance, the epoch is 10
 def params(draw: st.DrawFn) -> Params:
     vt = draw(st.integers(min_value=10**3, max_value=10**12))
     epoch = 10
+    young_age = draw(st.sampled_from([0, 0, 20, 60]))
     return Params(
         virtual_near=draw(st.integers(min_value=10**3, max_value=10**12)),
         virtual_tokens=vt,
@@ -37,6 +38,10 @@ def params(draw: st.DrawFn) -> Params:
         vintage_length=epoch * draw(st.integers(min_value=1, max_value=3)),
         launch_time=0,
         max_lots=draw(st.integers(min_value=1, max_value=4)),
+        buy_fee_bps=draw(st.sampled_from([0, 0, 50, 500])),
+        young_age=young_age,
+        young_fee_bps=draw(st.sampled_from([0, 100, 5000])) if young_age else 0,
+        min_age=draw(st.sampled_from([0, 0, 0, 10, 40])),
     )
 
 
@@ -161,8 +166,12 @@ class Market(RuleBasedStateMachine):
                 continue
             results = [self.m.result(r.id) for r in self.m.requests.values() if r.epoch == e]
             assert sum(c.filled for c in results) == s.total_filled
+            fee = self.m.params.young_fee_bps
             for c in results:
-                assert c.paid == (c.filled * s.paid // s.total_filled if s.total_filled else 0)
+                if fee == 0:  # one price for everyone
+                    assert c.paid == (c.filled * s.paid // s.total_filled if s.total_filled else 0)
+                elif s.total_filled:  # young tokens pay the young fee on top of that one price (M2)
+                    assert c.filled * (10_000 - fee) * s.paid // s.eff <= c.paid <= c.filled * 10_000 * s.paid // s.eff
             assert sum(c.paid for c in results) + s.dust_returned == s.paid
 
     @invariant()
