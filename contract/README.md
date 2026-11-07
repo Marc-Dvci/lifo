@@ -38,7 +38,7 @@ cargo near build non-reproducible-wasm --no-abi
 
 | File | Size | SHA-256 |
 |---|---|---|
-| `target/near/lifo/lifo.wasm` | 211,445 bytes | `3dd9d8fa997cf37487d83b4ea98cda269b509680e8db5479ef192ef739bf252b` |
+| `target/near/lifo/lifo.wasm` | 213,191 bytes | `de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a` |
 
 Built at commit `f37070c` with rustc 1.97.1 and wasm-opt from cargo-near. The build is not reproducible (no Docker image), so another machine may produce a different hash.
 
@@ -53,7 +53,7 @@ Amounts are strings (yoctoNEAR, or token units with 18 decimals). Times are nano
 | `request_sell(amount)` | payable | Locks `amount` tokens, newest first, into a request for the current epoch (C1). Attached NEAR goes to the caller's storage balance. Returns the request id. |
 | `settle()` | call | Settles the finished epoch, if any (C2 to C5). Anyone may call it. Returns 0 or 1. |
 | `claim()` | call | Pays the caller's settled requests and gives back unfilled tokens (C6, C7, C9). |
-| `ft_transfer`, `ft_transfer_call`, `ft_resolve_transfer`, `ft_total_supply`, `ft_balance_of` | NEP-141 | Transfers keep vintages (B1, B2, B4). |
+| `ft_transfer`, `ft_transfer_call`, `ft_resolve_transfer`, `ft_total_supply`, `ft_balance_of` | NEP-141 | Transfers keep vintages (B1, B2); a `ft_transfer_call` refund comes out of the receiver's oldest lots and is never newer than the oldest vintage sent (B4'). |
 | `ft_metadata` | NEP-148 | Name and symbol LIFO, 18 decimals. |
 | `storage_deposit`, `storage_withdraw`, `storage_unregister`, `storage_balance_of`, `storage_balance_bounds` | NEP-145 | Each account pays for its own storage. |
 | `contract_source_metadata` | NEP-330 | Version 0.1.0, link `https://github.com/Marc-Dvci/lifo`, standards. |
@@ -83,8 +83,8 @@ Standard `nep141` events go with them: `ft_mint` for a buy and for unfilled toke
 
 | Item | Bytes | NEAR at 10^19 yoctoNEAR per byte |
 |---|---|---|
-| An account (with `MAX_LOTS` 16) | 520 | 0.0052 |
-| An open sell request, reserved until claimed | 1,856 | 0.01856 |
+| An account (with `MAX_LOTS` 16) | 584 | 0.00584 |
+| An open sell request, reserved until claimed | 2,112 | 0.02112 |
 
 These are worst cases. The test `a5_contract_storage_is_covered_by_what_accounts_reserved` counts the bytes in storage after every call of a scenario with 16 lots per account and checks that they never exceed what the accounts reserved.
 
@@ -106,5 +106,21 @@ To run it:
 ```
 bash e2e/sandbox.sh start        # in WSL or Linux; SANDBOX_DIR and GLIBC_DIR are described in the script
 cd e2e && npm install && node gas.mjs
+bash e2e/sandbox.sh stop
+```
+The gas figures above were measured on the build before 64-bit vintages and the B4' refund; they were not rerun for the current wasm.
+
+## Initialisation and deposit checks on the sandbox
+
+`e2e/checks.mjs` deploys the current wasm on the same local sandbox and checks, 21 of 21 passed ([`results/e2e-checks.md`](../results/e2e-checks.md)):
+
+- `new` from another account is refused (`Method new is private`); `new` from the contract account succeeds; a second `new` is refused (`The contract has already been initialized`).
+- 1 yoctoNEAR attached to `settle` or `claim` is refused (`Method settle doesn't accept deposit`); on `ft_resolve_transfer` it is refused because the method is private.
+- View methods (`&self`) accept an attached deposit when called in a transaction: near-sdk adds no check to them. The yoctoNEAR stays in the contract account, and the reserve, which the contract counts itself, does not change. The script checks that for every view.
+- `contract_source_metadata` returns version 0.1.0, the link `https://github.com/Marc-Dvci/lifo` and the standards nep141, nep145, nep148, nep297 and nep330.
+
+```
+bash e2e/sandbox.sh start
+cd e2e && npm install && node checks.mjs
 bash e2e/sandbox.sh stop
 ```

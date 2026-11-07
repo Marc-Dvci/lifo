@@ -4,7 +4,8 @@
   "type": "module",
   "description": "End-to-end gas measurement of the LIFO contract on a local NEAR sandbox",
   "scripts": {
-    "gas": "node gas.mjs"
+    "gas": "node gas.mjs",
+    "checks": "node checks.mjs"
   },
   "dependencies": {
     "near-api-js": "^7.0.0"
