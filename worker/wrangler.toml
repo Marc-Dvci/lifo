@@ -1,0 +1,37 @@
+# The LIFO demo server: static page + /api, one Durable Object, one cron. Free plan.
+# Values below are for testnet. For a local run, `.dev.vars` overrides them with sandbox values
+# (see .dev.vars.example); secrets are never written here.
+name = "lifo-demo"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "../web"
+# Only /api goes through the Worker; the page and its files are static and free.
+run_worker_first = ["/api/*"]
+
+[[durable_objects.bindings]]
+name = "GATE"
+class_name = "Gate"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Gate"]
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+NETWORK = "testnet"
+RPC_URL = "https://rpc.testnet.near.org"
+EXPLORER_TX = "https://testnet.nearblocks.io/txns/"
+EXPLORER_ACCOUNT = "https://testnet.nearblocks.io/address/"
+CONTRACT_LAUNCH = "launch.lifo-demo.testnet"
+CONTRACT_DEMO = "demo.lifo-demo.testnet"
+ROLE_EARLY = "early.lifo-demo.testnet"
+ROLE_LATE = "late.lifo-demo.testnet"
+ROLE_INSIDER = "insider.lifo-demo.testnet"
+ROLE_PANIC = "panic.lifo-demo.testnet"
+CRANK_ACCOUNT = "crank.lifo-demo.testnet"
+
+# Secrets, set with `wrangler secret put` (names only): KEY_EARLY, KEY_LATE, KEY_INSIDER, KEY_PANIC, KEY_CRANK.

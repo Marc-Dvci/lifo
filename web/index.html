@@ -3,25 +3,104 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LIFO</title>
-    <meta name="description" content="The memecoin where the last in are the first out." />
+    <title>LIFO: the last in are the first out</title>
+    <meta name="description" content="A memecoin on NEAR where, when many sell at once, the reserve pays the newest buyers first." />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <!-- The card a pasted link shows (Devpost, Discord, LinkedIn): og:image must be an absolute URL. -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="LIFO" />
-    <meta property="og:description" content="The memecoin where the last in are the first out." />
-    <meta property="og:image" content="{{DEMO_URL}}og-card.png" />
+    <meta property="og:title" content="LIFO: the last in are the first out" />
+    <meta property="og:description" content="A memecoin on NEAR where, when many sell at once, the reserve pays the newest buyers first." />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <header class="top">
+      <a class="mark" href="./" aria-label="LIFO">
+        <svg viewBox="0 0 48 40" width="38" height="32" aria-hidden="true">
+          <rect x="4" y="29" width="40" height="9" rx="4.5" fill="#9bb0d9" />
+          <rect x="8" y="19" width="32" height="9" rx="4.5" fill="#b86cf0" />
+          <rect x="12" y="9" width="24" height="9" rx="4.5" fill="#ff3d7f" />
+        </svg>
+        <span>LIFO</span>
+      </a>
+      <div class="switch" role="group" aria-label="Which deployment">
+        <button type="button" data-d="demo" aria-pressed="true">Demo speed</button>
+        <button type="button" data-d="launch" aria-pressed="false">Launch rules</button>
+      </div>
+    </header>
+
     <main>
-      <h1>LIFO</h1>
-      <p class="lede">The memecoin where the last in are the first out.</p>
-      <button id="run" type="button">Run the example</button>
-      <pre id="out" aria-live="polite"></pre>
-      <p class="foot" id="status"></p>
+      <section class="intro">
+        <h1>The last in are the first out.</h1>
+        <p class="lede">LIFO is a memecoin on NEAR testnet. When many holders sell at once, the reserve pays the newest buyers first and the oldest holders wait.</p>
+        <p class="mode" id="mode"></p>
+      </section>
+
+      <div class="stage">
+        <section class="stack-wrap" aria-labelledby="stack-title">
+          <h2 id="stack-title" class="sr">The stack of plates</h2>
+          <p class="end top-end"><span aria-hidden="true">▲</span> newest plate, paid first</p>
+          <ol id="stack" class="stack" aria-live="polite"></ol>
+          <p class="end bottom-end"><span aria-hidden="true">▼</span> oldest plate, paid last</p>
+          <p class="note" id="stack-note"></p>
+        </section>
+
+        <div class="side">
+          <section id="clock" class="block" aria-label="Round clock">
+            <h2>Next round</h2>
+            <p class="big"><span id="clock-time">–:––</span></p>
+            <div class="track thin" aria-hidden="true"><i id="clock-bar"></i></div>
+            <p class="small" id="clock-text"></p>
+          </section>
+
+          <section id="gate" class="block" aria-label="The gate">
+            <h2>The gate</h2>
+            <div class="track meter" aria-hidden="true">
+              <i class="in" id="gate-in"></i><i class="over" id="gate-over"></i><b class="cap" id="gate-cap"><span>limit</span></b>
+            </div>
+            <p id="gate-text"></p>
+          </section>
+
+          <section id="pool" class="block" aria-label="The pool">
+            <h2>The pool</h2>
+            <p id="pool-line" class="pool-line"></p>
+          </section>
+
+          <section id="you" class="block" aria-label="Play a role">
+            <h2>Play a role</h2>
+            <div class="roles" id="roles" role="group" aria-label="Role"></div>
+            <p id="role-text" class="small"></p>
+            <p id="place" class="place"></p>
+            <div class="acts">
+              <button type="button" class="act buy" id="buy"></button>
+              <button type="button" class="act sell" id="sell"></button>
+            </div>
+            <p id="act-msg" class="small" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+      </div>
+
+      <section class="logs" aria-label="What happened">
+        <div>
+          <h2>Settled rounds</h2>
+          <ul id="rounds" class="log"></ul>
+        </div>
+        <div>
+          <h2>Latest actions</h2>
+          <ul id="feed" class="log"></ul>
+        </div>
+      </section>
     </main>
-    <script src="app.js"></script>
+
+    <footer>
+      <p id="server-error" class="small error" hidden>The demo server cannot be reached. The page shows what it last read.</p>
+      <p>
+        <a id="link-rules" href="https://github.com/Marc-Dvci/lifo/blob/main/RULES.md">The rules in plain words</a>
+        <a id="link-source" href="https://github.com/Marc-Dvci/lifo/blob/main/contract/src/lib.rs">Contract source</a>
+        <a id="link-contract" href="#" hidden>This contract on the explorer</a>
+      </p>
+      <p class="small">Testnet only, with demo accounts that the server signs for. Nothing here is money. Amounts, rounds and plates are read from the chain.</p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
   </body>
 </html>

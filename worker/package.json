@@ -1,0 +1,13 @@
+{
+  "name": "lifo-worker",
+  "private": true,
+  "type": "module",
+  "description": "The LIFO demo server: Cloudflare Worker, free plan",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "dev": "wrangler dev --port 8797 --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

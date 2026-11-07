@@ -24,3 +24,7 @@ data/runs/
 
 # Rust build output
 target/
+
+# Worker local state and secrets
+.dev.vars
+.wrangler/
