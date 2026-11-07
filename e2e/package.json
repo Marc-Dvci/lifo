@@ -1,0 +1,12 @@
+{
+  "name": "lifo-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end gas measurement of the LIFO contract on a local NEAR sandbox",
+  "scripts": {
+    "gas": "node gas.mjs"
+  },
+  "dependencies": {
+    "near-api-js": "^7.0.0"
+  }
+}
