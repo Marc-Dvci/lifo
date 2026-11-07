@@ -113,7 +113,18 @@ impl Replay {
                         .iter()
                         .map(|l| l[0].as_u64().unwrap())
                         .min()
-                        .unwrap() as u32;
+                        .unwrap();
+                    // the receiver's transfers inside `ft_on_transfer`, before the refund (B4')
+                    for m in step
+                        .get("moves")
+                        .and_then(|v| v.as_array())
+                        .into_iter()
+                        .flatten()
+                    {
+                        let (third, moved) = (acct(m[0].as_str().unwrap()), U128(int(&m[1])));
+                        call(&to, now, 1, |c| c.ft_transfer(third, moved, None))
+                            .expect("a move succeeds");
+                    }
                     let answer = near_sdk::serde_json::to_vec(&U128(int(&step["unused"]))).unwrap();
                     let used = call_with(
                         &contract_id(),
@@ -310,6 +321,14 @@ fn replay_file(file: &str) -> (usize, usize) {
                     accounts.insert(name.to_string());
                 }
             }
+            for m in step
+                .get("moves")
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+            {
+                accounts.insert(m[0].as_str().unwrap().to_string());
+            }
         }
         for name in &accounts {
             register(name, 100);
@@ -331,7 +350,7 @@ fn replay_file(file: &str) -> (usize, usize) {
 #[test]
 fn g3_contract_replays_every_edge_vector() {
     let (cases, steps) = replay_file("edge.json");
-    assert_eq!(cases, 8);
+    assert_eq!(cases, 10);
     eprintln!("edge.json: {cases} cases, {steps} steps replayed");
 }
 

@@ -46,7 +46,7 @@ fn settle(now: u64) -> u32 {
     call(&acct("keeper"), now, 0, |c| c.settle()).unwrap()
 }
 
-fn lots(name: &str) -> Vec<(u32, u128)> {
+fn lots(name: &str) -> Vec<(u64, u128)> {
     view(|c| c.get_account(acct(name)))
         .map_or(vec![], |a| a.lots.iter().map(|(v, x)| (*v, x.0)).collect())
 }
@@ -319,6 +319,18 @@ fn b3_the_two_oldest_lots_merge_into_the_older_vintage() {
 }
 
 fn transfer_call(from: &str, to: &str, now: u64, amount: u128, answer: PromiseResult) -> u128 {
+    transfer_call_moving(from, to, now, amount, &[], answer)
+}
+
+/// `ft_transfer_call`, then the receiver's own transfers (as from `ft_on_transfer`), then the resolve callback.
+fn transfer_call_moving(
+    from: &str,
+    to: &str,
+    now: u64,
+    amount: u128,
+    moves: &[(&str, u128)],
+    answer: PromiseResult,
+) -> u128 {
     call(&acct(from), now, 1, |c| {
         let _ = c.ft_transfer_call(acct(to), U128(amount), None, String::new());
     })
@@ -330,11 +342,121 @@ fn transfer_call(from: &str, to: &str, now: u64, amount: u128, answer: PromiseRe
         .map(|l| l[0].as_u64().unwrap())
         .min()
         .unwrap();
+    for &(third, moved) in moves {
+        send(to, third, now, moved);
+    }
     let used = call_with(&contract_id(), now, 0, vec![answer], |c| {
-        c.ft_resolve_transfer(acct(from), acct(to), U128(amount), oldest as u32)
+        c.ft_resolve_transfer(acct(from), acct(to), U128(amount), oldest)
     })
     .unwrap();
     amount - used.0
+}
+
+fn unused(n: u128) -> PromiseResult {
+    PromiseResult::Successful(near_sdk::serde_json::to_vec(&U128(n)).unwrap())
+}
+
+/// Epochs and vintages of 10 ns from a launch at 0: the parameters of the review's sequence.
+fn setup_tens(names: &[&str]) {
+    quiet();
+    let mut p = small();
+    p.vintage_length = U64(10);
+    p.launch_time = U64(0);
+    deploy(p);
+    for n in names {
+        register(n, 10);
+    }
+}
+
+#[test]
+fn b4_a_refund_after_the_receiver_moved_the_tokens_turns_no_old_token_into_a_newer_vintage() {
+    setup_tens(&["receiver", "sender", "third"]);
+    assert_eq!(buy("receiver", 0, 1_000), 90_909);
+    assert_eq!(buy("sender", 10, 1_000), 75_757);
+    let back = transfer_call_moving(
+        "sender",
+        "receiver",
+        10,
+        75_757,
+        &[("third", 75_757)],
+        unused(75_757),
+    );
+    assert_eq!(back, 75_757);
+    assert_eq!(lots("third"), vec![(1, 75_757)]);
+    assert_eq!(
+        lots("sender"),
+        vec![(0, 75_757)],
+        "the refund is vintage-0 tokens and stays vintage 0"
+    );
+    assert_eq!(lots("receiver"), vec![(0, 90_909 - 75_757)]);
+}
+
+#[test]
+fn b4_old_tokens_sent_to_a_pool_that_refunds_come_back_old_and_leave_the_pools_newer_lots() {
+    setup_tens(&["a", "exchange", "b"]);
+    buy("a", 0, 1_000);
+    buy("exchange", 50, 5_000);
+    let stock = balance("exchange");
+    assert_eq!(
+        transfer_call("a", "exchange", 50, 1_000, unused(1_000)),
+        1_000
+    );
+    assert_eq!(lots("a"), vec![(0, balance("a"))]);
+    assert_eq!(lots("exchange"), vec![(5, stock)]);
+    let back = transfer_call_moving("a", "exchange", 50, 1_000, &[("b", 1_000)], unused(1_000));
+    assert_eq!(back, 1_000);
+    assert_eq!(
+        lots("a"),
+        vec![(0, balance("a"))],
+        "never the pool's vintage 5"
+    );
+    assert_eq!(lots("b"), vec![(5, 1_000)]);
+    assert_eq!(lots("exchange"), vec![(5, stock - 1_000)]);
+}
+
+#[test]
+fn b4_a_refund_out_of_lots_newer_than_the_oldest_sent_gets_the_oldest_vintage_sent() {
+    // the receiver passes the tokens on and buys newer ones of its own before the refund arrives
+    setup_tens(&["a", "receiver", "b"]);
+    buy("a", 0, 1_000);
+    call(&acct("a"), 50, 1, |c| {
+        let _ = c.ft_transfer_call(acct("receiver"), U128(500), None, String::new());
+    })
+    .unwrap();
+    send("receiver", "b", 50, 500);
+    buy("receiver", 70, 1_000);
+    assert_eq!(lots("receiver")[0].0, 7);
+    let used = call_with(&contract_id(), 70, 0, vec![unused(500)], |c| {
+        c.ft_resolve_transfer(acct("a"), acct("receiver"), U128(500), 0)
+    })
+    .unwrap();
+    assert_eq!(used.0, 0);
+    assert_eq!(
+        lots("a"),
+        vec![(0, balance("a"))],
+        "vintage-7 tokens come back as vintage 0"
+    );
+}
+
+#[test]
+fn vintages_above_u32_max_do_not_wrap() {
+    quiet();
+    let mut p = small();
+    p.epoch_length = U64(1);
+    p.vintage_length = U64(1);
+    p.launch_time = U64(0);
+    deploy(p);
+    register("a", 10);
+    register("b", 10);
+    let late = u32::MAX as u64 + 6;
+    buy("a", 5, 1_000);
+    buy("b", late, 1_000);
+    assert_eq!(lots("b")[0].0, late, "vintage 2^32 + 5, not 5");
+    send("b", "a", late, 1_000);
+    assert_eq!(
+        lots("a").iter().map(|l| l.0).collect::<Vec<_>>(),
+        vec![5, late]
+    );
 }
 
 #[test]
@@ -540,8 +662,8 @@ fn c5_newer_vintage_filled_before_older() {
     settle(t(6));
     let s = view(|c| c.get_settlement(U64(5))).unwrap();
     assert!(s.bound);
-    let f: Vec<(u32, u128)> = s.filled.iter().map(|(v, a)| (*v, a.0)).collect();
-    let r: Vec<(u32, u128)> = s.requested.iter().map(|(v, a)| (*v, a.0)).collect();
+    let f: Vec<(u64, u128)> = s.filled.iter().map(|(v, a)| (*v, a.0)).collect();
+    let r: Vec<(u64, u128)> = s.requested.iter().map(|(v, a)| (*v, a.0)).collect();
     assert_eq!(f[2].1, r[2].1, "the newest vintage is filled in full");
     assert!(
         f[1].1 > 0 && f[1].1 < r[1].1,
@@ -751,9 +873,9 @@ fn d2_events_rebuild_every_account_lots() {
         claim(who, t(11));
         keep(&mut log);
     }
-    let mut rebuilt: std::collections::BTreeMap<String, Vec<(u32, u128)>> = Default::default();
+    let mut rebuilt: std::collections::BTreeMap<String, Vec<(u64, u128)>> = Default::default();
     let n = |v: &Value| v.as_str().unwrap().parse::<u128>().unwrap();
-    let add = |l: &mut Vec<(u32, u128)>, v: u32, a: u128| {
+    let add = |l: &mut Vec<(u64, u128)>, v: u64, a: u128| {
         let i = l.partition_point(|x| x.0 < v);
         if i < l.len() && l[i].0 == v {
             l[i].1 += a
@@ -765,7 +887,7 @@ fn d2_events_rebuild_every_account_lots() {
             l[0].1 += x;
         }
     };
-    let sub = |l: &mut Vec<(u32, u128)>, v: u32, a: u128| {
+    let sub = |l: &mut Vec<(u64, u128)>, v: u64, a: u128| {
         let i = l.iter().position(|x| x.0 == v).unwrap();
         l[i].1 -= a;
         if l[i].1 == 0 {
@@ -777,21 +899,21 @@ fn d2_events_rebuild_every_account_lots() {
         match e["event"].as_str().unwrap() {
             "buy" => add(
                 rebuilt.entry(s_(d, "account_id")).or_default(),
-                d["vintage"].as_u64().unwrap() as u32,
+                d["vintage"].as_u64().unwrap(),
                 n(&d["tokens"]),
             ),
             "sell_request" => {
                 for p in d["portions"].as_array().unwrap() {
                     sub(
                         rebuilt.get_mut(&s_(d, "account_id")).unwrap(),
-                        p[0].as_u64().unwrap() as u32,
+                        p[0].as_u64().unwrap(),
                         n(&p[1]),
                     );
                 }
             }
             "transfer" => {
                 for p in d["lots"].as_array().unwrap() {
-                    let (v, a) = (p[0].as_u64().unwrap() as u32, n(&p[1]));
+                    let (v, a) = (p[0].as_u64().unwrap(), n(&p[1]));
                     sub(rebuilt.get_mut(&s_(d, "old_owner_id")).unwrap(), v, a);
                     add(rebuilt.entry(s_(d, "new_owner_id")).or_default(), v, a);
                 }
@@ -800,7 +922,7 @@ fn d2_events_rebuild_every_account_lots() {
                 for p in d["returned"].as_array().unwrap() {
                     add(
                         rebuilt.get_mut(&s_(d, "account_id")).unwrap(),
-                        p[0].as_u64().unwrap() as u32,
+                        p[0].as_u64().unwrap(),
                         n(&p[1]),
                     );
                 }

@@ -53,14 +53,14 @@ pub const E_CONTRACT_ACCOUNT: &str = "contract cannot hold tokens";
 
 /// Largest `max_lots` accepted at initialisation: it bounds the gas of a transfer and the storage of an account.
 pub const MAX_LOTS_LIMIT: u32 = 64;
-/// Worst-case storage of an account record: key, lots (20 bytes each), pending ids, payout and storage balance.
+/// Worst-case storage of an account record: key, lots (24 bytes each), pending ids, payout and storage balance.
 pub fn account_bytes(max_lots: u32) -> u64 {
-    200 + 20 * max_lots as u64
+    200 + 24 * max_lots as u64
 }
-/// Worst-case storage of one open sell request: its record and id (36 bytes per portion), its share of the epoch's
-/// per-vintage aggregates (open, requested and filled: 60 bytes per portion) and a whole settlement header.
+/// Worst-case storage of one open sell request: its record and id (40 bytes per portion), its share of the epoch's
+/// per-vintage aggregates (open, requested and filled: 72 bytes per portion) and a whole settlement header.
 pub fn request_bytes(max_lots: u32) -> u64 {
-    320 + 96 * max_lots as u64
+    320 + 112 * max_lots as u64
 }
 
 const GAS_RESOLVE: Gas = Gas::from_tgas(20);
@@ -109,7 +109,7 @@ impl Params {
 #[near(serializers = [borsh])]
 #[derive(Clone, Default)]
 pub struct Account {
-    pub lots: Vec<(u32, u128)>,
+    pub lots: Vec<(u64, u128)>,
     pub pending: Vec<u64>,
     pub paid_out: u128,
     pub storage: u128,
@@ -120,7 +120,7 @@ pub struct Account {
 #[derive(Clone)]
 pub struct Request {
     pub epoch: u64,
-    pub portions: Vec<(u32, u128, u128)>,
+    pub portions: Vec<(u64, u128, u128)>,
 }
 
 /// The per-vintage aggregates of a settled epoch (C8). Kept until its last request is claimed, then removed; the
@@ -130,8 +130,8 @@ pub struct Request {
 pub struct Settlement {
     pub cap: u128,
     pub max_fill: Option<String>,
-    pub requested: Vec<(u32, u128)>,
-    pub filled: Vec<(u32, u128)>,
+    pub requested: Vec<(u64, u128)>,
+    pub filled: Vec<(u64, u128)>,
     pub total_requested: u128,
     pub total_filled: u128,
     pub paid: u128,
@@ -148,7 +148,7 @@ pub struct ClaimView {
     pub request_id: U64,
     pub filled: U128,
     pub paid: U128,
-    pub returned: Vec<(u32, U128)>,
+    pub returned: Vec<(u64, U128)>,
 }
 
 #[near(serializers = [json])]
@@ -168,10 +168,10 @@ pub struct PoolView {
 #[near(serializers = [json])]
 pub struct OpenView {
     pub epoch: Option<U64>,
-    pub requested: Vec<(u32, U128)>,
+    pub requested: Vec<(u64, U128)>,
     pub requests: u32,
     pub current_epoch: U64,
-    pub current_vintage: u32,
+    pub current_vintage: u64,
 }
 
 #[near(serializers = [json])]
@@ -179,8 +179,8 @@ pub struct SettlementView {
     pub epoch: U64,
     pub cap: U128,
     pub max_fill: Option<String>,
-    pub requested: Vec<(u32, U128)>,
-    pub filled: Vec<(u32, U128)>,
+    pub requested: Vec<(u64, U128)>,
+    pub filled: Vec<(u64, U128)>,
     pub total_requested: U128,
     pub total_filled: U128,
     pub paid: U128,
@@ -195,12 +195,12 @@ pub struct SettlementView {
 pub struct RequestView {
     pub id: U64,
     pub epoch: U64,
-    pub portions: Vec<(u32, U128, U128)>,
+    pub portions: Vec<(u64, U128, U128)>,
 }
 
 #[near(serializers = [json])]
 pub struct AccountView {
-    pub lots: Vec<(u32, U128)>,
+    pub lots: Vec<(u64, U128)>,
     pub pending: Vec<RequestView>,
     pub paid_out: U128,
 }
@@ -253,7 +253,7 @@ fn ft_event(event: &str, data: Value) {
     emit("nep141", "1.0.0", event, data);
 }
 
-fn pairs(v: &[(u32, u128)]) -> Vec<(u32, U128)> {
+fn pairs(v: &[(u64, u128)]) -> Vec<(u64, U128)> {
     v.iter().map(|&(a, b)| (a, U128(b))).collect()
 }
 
@@ -277,7 +277,7 @@ fn one_yocto() {
 // --- Lots (B1 to B3) ----------------------------------------------------------------------------------------------
 
 /// B1: removes `amount` from the newest lots first; returns what was taken, newest first.
-fn take(lots: &mut Vec<(u32, u128)>, amount: u128) -> Vec<(u32, u128)> {
+fn take(lots: &mut Vec<(u64, u128)>, amount: u128) -> Vec<(u64, u128)> {
     let total: u128 = lots.iter().map(|l| l.1).sum();
     check(total >= amount, E_BALANCE);
     let mut left = amount;
@@ -297,8 +297,29 @@ fn take(lots: &mut Vec<(u32, u128)>, amount: u128) -> Vec<(u32, u128)> {
     taken
 }
 
+/// B4': removes `amount` (at most the balance) from the oldest lots first; returns what was taken, oldest first.
+fn take_oldest(lots: &mut Vec<(u64, u128)>, amount: u128) -> Vec<(u64, u128)> {
+    let mut left = amount;
+    let mut taken = Vec::new();
+    let mut whole = 0;
+    for lot in lots.iter_mut() {
+        if left == 0 {
+            break;
+        }
+        let got = lot.1.min(left);
+        taken.push((lot.0, got));
+        left -= got;
+        lot.1 -= got;
+        if lot.1 == 0 {
+            whole += 1;
+        }
+    }
+    lots.drain(..whole);
+    taken
+}
+
 /// B2, B3: adds a lot, merged with one of equal vintage; while there are too many, the two oldest merge into the older.
-fn add_lot(lots: &mut Vec<(u32, u128)>, vintage: u32, amount: u128, max_lots: u32) {
+fn add_lot(lots: &mut Vec<(u64, u128)>, vintage: u64, amount: u128, max_lots: u32) {
     let i = lots.partition_point(|l| l.0 < vintage);
     if i < lots.len() && lots[i].0 == vintage {
         lots[i].1 += amount;
@@ -311,7 +332,7 @@ fn add_lot(lots: &mut Vec<(u32, u128)>, vintage: u32, amount: u128, max_lots: u3
     }
 }
 
-fn find(v: &[(u32, u128)], vintage: u32) -> u128 {
+fn find(v: &[(u64, u128)], vintage: u64) -> u128 {
     v.binary_search_by_key(&vintage, |l| l.0)
         .map(|i| v[i].1)
         .unwrap_or(0)
@@ -340,7 +361,7 @@ pub struct Lifo {
     /// Tokens inside open or unclaimed requests: in `supply`, in no account's balance.
     locked: u128,
     open_epoch: Option<u64>,
-    open_requested: Vec<(u32, u128)>,
+    open_requested: Vec<(u64, u128)>,
     open_count: u32,
     next_id: u64,
     accounts: LookupMap<AccountId, Account>,
@@ -452,7 +473,7 @@ impl Lifo {
         self.next_id += 1;
         acc.pending.push(id);
         self.accounts.insert(account.clone(), acc);
-        let shown: Vec<(u32, U128, U128)> = portions
+        let shown: Vec<(u64, U128, U128)> = portions
             .iter()
             .map(|&(v, a, s)| (v, U128(a), U128(s)))
             .collect();
@@ -520,15 +541,15 @@ impl Lifo {
             .into()
     }
 
-    /// B4: takes back what the receiver did not use, with the oldest vintage among the lots that were sent. Returns
-    /// the amount used. Settling here is not needed: a refund changes neither the reserve nor the supply.
+    /// B4': takes back what the receiver did not use, out of its oldest lots, never newer than the oldest vintage sent.
+    /// Returns the amount used. Settling here is not needed: a refund changes neither the reserve nor the supply.
     #[private]
     pub fn ft_resolve_transfer(
         &mut self,
         sender_id: AccountId,
         receiver_id: AccountId,
         amount: U128,
-        oldest: u32,
+        oldest: u64,
     ) -> U128 {
         let unused = match env::promise_result_checked(0, 64) {
             Ok(v) => near_sdk::serde_json::from_slice::<U128>(&v).map_or(amount.0, |u| u.0),
@@ -759,8 +780,8 @@ impl Lifo {
         (t - self.params.launch_time.0) / self.params.epoch_length.0
     }
 
-    fn vintage_of(&self, t: u64) -> u32 {
-        ((t - self.params.launch_time.0) / self.params.vintage_length.0) as u32
+    fn vintage_of(&self, t: u64) -> u64 {
+        ((t - self.params.launch_time.0) / self.params.vintage_length.0)
     }
 
     fn byte_cost() -> u128 {
@@ -811,7 +832,7 @@ impl Lifo {
         };
         let bound = total_filled < total;
         let mut left = total_filled;
-        let mut filled: Vec<(u32, u128)> = requested
+        let mut filled: Vec<(u64, u128)> = requested
             .iter()
             .rev()
             .map(|&(v, r)| {
@@ -895,7 +916,7 @@ impl Lifo {
             }
             acc.paid_out += paid;
             total_paid += paid;
-            let back: u128 = returned.iter().map(|l: &(u32, u128)| l.1).sum();
+            let back: u128 = returned.iter().map(|l: &(u64, u128)| l.1).sum();
             self.locked -= back;
             for &(v, a) in &returned {
                 add_lot(&mut acc.lots, v, a, self.params.max_lots);
@@ -936,7 +957,7 @@ impl Lifo {
         receiver: &AccountId,
         amount: u128,
         memo: Option<String>,
-    ) -> Vec<(u32, u128)> {
+    ) -> Vec<(u64, u128)> {
         check(sender != receiver, E_SELF);
         check(amount > 0, E_ZERO);
         let mut from = self
@@ -966,14 +987,15 @@ impl Lifo {
         moved
     }
 
-    /// B4: the refund of `ft_transfer_call`, `min(unused, amount, receiver's balance)`, returned to the sender as one lot
-    /// of `oldest`. Public for the tests, which replay the model's `transfer_call` without a second block.
+    /// B4': the refund of `ft_transfer_call`, `min(unused, amount, receiver's balance)`, taken from the receiver's
+    /// oldest lots; each token goes back with `min(its vintage, oldest)`, `oldest` being the oldest vintage sent.
+    /// Public for the tests, which replay the model's `transfer_call` without a second block.
     pub fn refund(
         &mut self,
         sender: &AccountId,
         receiver: &AccountId,
         amount: u128,
-        oldest: u32,
+        oldest: u64,
         unused: u128,
     ) -> u128 {
         let Some(mut to) = self.accounts.get(receiver).cloned() else {
@@ -987,8 +1009,17 @@ impl Lifo {
         if refund == 0 {
             return 0;
         }
-        take(&mut to.lots, refund);
-        add_lot(&mut from.lots, oldest, refund, self.params.max_lots);
+        let mut given: Vec<(u64, u128)> = Vec::new();
+        for (v, a) in take_oldest(&mut to.lots, refund) {
+            let v = v.min(oldest);
+            match given.last_mut() {
+                Some(last) if last.0 == v => last.1 += a,
+                _ => given.push((v, a)),
+            }
+        }
+        for &(v, a) in &given {
+            add_lot(&mut from.lots, v, a, self.params.max_lots);
+        }
         self.accounts.insert(receiver.clone(), to);
         self.accounts.insert(sender.clone(), from);
         ft_event(
@@ -997,7 +1028,7 @@ impl Lifo {
         );
         lifo_event(
             "transfer",
-            json!({"old_owner_id": receiver, "new_owner_id": sender, "lots": [[oldest, U128(refund)]]}),
+            json!({"old_owner_id": receiver, "new_owner_id": sender, "lots": pairs(&given)}),
         );
         refund
     }
