@@ -1,7 +1,7 @@
 // Thin helpers over near-api-js 7 for the end-to-end scripts.
 import { Account, JsonRpcProvider, FailoverRpcProvider, KeyPair, actions, nearToYocto, teraToGas } from 'near-api-js';
 
-export { nearToYocto, teraToGas };
+export { nearToYocto, teraToGas, actions, KeyPair };
 
 /** One RPC URL, or several separated by commas (fails over between them). */
 export function provider(url) {

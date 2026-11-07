@@ -83,8 +83,8 @@ test('the stack lists the newest plate first and sizes a plate by what is held a
   assert.deepEqual(s.map((p) => p.vintage), [2, 1, 0]);
   assert.deepEqual(s.map((p) => p.total), [40n * T, 100n * T, 100n * T]);
   assert.equal(s[0].open, true);
-  assert.equal(s[0].age, 'still open to buyers');
-  assert.equal(s[2].age, 'opened 7 min ago');
+  assert.equal(s[0].age, 'open now');
+  assert.equal(s[2].age, '7 min old');
   assert.equal(s[1].width, 1);
   assert.ok(s[0].width >= 0.22 && s[0].width < 1);
   assert.deepEqual(Object.keys(s[1].mine).sort(), ['early', 'insider']);

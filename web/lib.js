@@ -173,7 +173,7 @@ export function buildStack({ params, open, accounts, now }) {
       queuedShare: Number((p.queued * 1000n) / total) / 1000,
       color: plateColor(i, list.length),
       open: p.vintage === currentV,
-      age: p.vintage === currentV ? 'still open to buyers' : `opened ${fmtDuration(startedAgo)} ago`,
+      age: p.vintage === currentV ? 'open now' : `${fmtDuration(startedAgo)} old`,
     };
   });
 }
