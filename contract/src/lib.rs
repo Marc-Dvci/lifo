@@ -23,7 +23,7 @@
 
 pub mod math;
 
-use math::{after_fee, buy_out, gate_fill, mul_div, sell_gross, u, U256, BPS};
+use math::{after_fee, buy_out, gate_fill, mul_div, sell_gross, u, BPS, U256};
 use near_sdk::json_types::{U128, U64};
 use near_sdk::serde_json::{json, Value};
 use near_sdk::store::LookupMap;
@@ -85,7 +85,11 @@ pub struct Params {
 
 impl Params {
     fn valid(&self) -> bool {
-        let (vn, vt, ms) = (self.virtual_near.0, self.virtual_tokens.0, self.max_supply.0);
+        let (vn, vt, ms) = (
+            self.virtual_near.0,
+            self.virtual_tokens.0,
+            self.max_supply.0,
+        );
         let (el, vl) = (self.epoch_length.0, self.vintage_length.0);
         vn > 0
             && 0 < ms
@@ -226,7 +230,12 @@ pub struct FungibleTokenMetadata {
 
 #[ext_contract(ext_ft_receiver)]
 pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<U128>;
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128>;
 }
 
 // --- Events (D2, NEP-297) -----------------------------------------------------------------------------------------
@@ -259,7 +268,10 @@ fn check(ok: bool, msg: &str) {
 }
 
 fn one_yocto() {
-    check(env::attached_deposit() == NearToken::from_yoctonear(1), E_ONE_YOCTO);
+    check(
+        env::attached_deposit() == NearToken::from_yoctonear(1),
+        E_ONE_YOCTO,
+    );
 }
 
 // --- Lots (B1 to B3) ----------------------------------------------------------------------------------------------
@@ -300,7 +312,9 @@ fn add_lot(lots: &mut Vec<(u32, u128)>, vintage: u32, amount: u128, max_lots: u3
 }
 
 fn find(v: &[(u32, u128)], vintage: u32) -> u128 {
-    v.binary_search_by_key(&vintage, |l| l.0).map(|i| v[i].1).unwrap_or(0)
+    v.binary_search_by_key(&vintage, |l| l.0)
+        .map(|i| v[i].1)
+        .unwrap_or(0)
 }
 
 // --- The contract -------------------------------------------------------------------------------------------------
@@ -374,7 +388,10 @@ impl Lifo {
                 let cost = self.account_cost();
                 check(deposit > cost, E_STORAGE);
                 deposit -= cost;
-                Account { storage: cost, ..Default::default() }
+                Account {
+                    storage: cost,
+                    ..Default::default()
+                }
             }
         };
         let out = buy_out(self.x(), self.y(), deposit);
@@ -385,7 +402,10 @@ impl Lifo {
         let vintage = self.vintage_of(self.now);
         add_lot(&mut acc.lots, vintage, out, self.params.max_lots);
         self.accounts.insert(account.clone(), acc);
-        ft_event("ft_mint", json!({"owner_id": account, "amount": U128(out), "memo": "buy"}));
+        ft_event(
+            "ft_mint",
+            json!({"owner_id": account, "amount": U128(out), "memo": "buy"}),
+        );
         lifo_event(
             "buy",
             json!({"account_id": account, "deposit": U128(deposit), "tokens": U128(out), "vintage": vintage,
@@ -402,7 +422,11 @@ impl Lifo {
         self.begin(Some(&account));
         let amount = amount.0;
         check(amount > 0, E_ZERO);
-        let mut acc = self.accounts.get(&account).cloned().unwrap_or_else(|| fail(E_BALANCE));
+        let mut acc = self
+            .accounts
+            .get(&account)
+            .cloned()
+            .unwrap_or_else(|| fail(E_BALANCE));
         acc.storage += env::attached_deposit().as_yoctonear();
         let taken = take(&mut acc.lots, amount);
         let needed = self.account_cost() + (acc.pending.len() as u128 + 1) * self.request_cost();
@@ -428,9 +452,15 @@ impl Lifo {
         self.next_id += 1;
         acc.pending.push(id);
         self.accounts.insert(account.clone(), acc);
-        let shown: Vec<(u32, U128, U128)> = portions.iter().map(|&(v, a, s)| (v, U128(a), U128(s))).collect();
+        let shown: Vec<(u32, U128, U128)> = portions
+            .iter()
+            .map(|&(v, a, s)| (v, U128(a), U128(s)))
+            .collect();
         self.requests.insert(id, Request { epoch, portions });
-        ft_event("ft_burn", json!({"owner_id": account, "amount": U128(amount), "memo": format!("sell request {id}")}));
+        ft_event(
+            "ft_burn",
+            json!({"owner_id": account, "amount": U128(amount), "memo": format!("sell request {id}")}),
+        );
         lifo_event(
             "sell_request",
             json!({"account_id": account, "request_id": U64(id), "epoch": U64(epoch), "portions": shown}),
@@ -493,7 +523,13 @@ impl Lifo {
     /// B4: takes back what the receiver did not use, with the oldest vintage among the lots that were sent. Returns
     /// the amount used. Settling here is not needed: a refund changes neither the reserve nor the supply.
     #[private]
-    pub fn ft_resolve_transfer(&mut self, sender_id: AccountId, receiver_id: AccountId, amount: U128, oldest: u32) -> U128 {
+    pub fn ft_resolve_transfer(
+        &mut self,
+        sender_id: AccountId,
+        receiver_id: AccountId,
+        amount: U128,
+        oldest: u32,
+    ) -> U128 {
         let unused = match env::promise_result_checked(0, 64) {
             Ok(v) => near_sdk::serde_json::from_slice::<U128>(&v).map_or(amount.0, |u| u.0),
             Err(_) => amount.0,
@@ -506,7 +542,11 @@ impl Lifo {
     }
 
     pub fn ft_balance_of(&self, account_id: AccountId) -> U128 {
-        U128(self.accounts.get(&account_id).map_or(0, |a| a.lots.iter().map(|l| l.1).sum()))
+        U128(
+            self.accounts
+                .get(&account_id)
+                .map_or(0, |a| a.lots.iter().map(|l| l.1).sum()),
+        )
     }
 
     pub fn ft_metadata(&self) -> FungibleTokenMetadata {
@@ -524,7 +564,11 @@ impl Lifo {
     // --- NEP-145 ---
 
     #[payable]
-    pub fn storage_deposit(&mut self, account_id: Option<AccountId>, registration_only: Option<bool>) -> StorageBalance {
+    pub fn storage_deposit(
+        &mut self,
+        account_id: Option<AccountId>,
+        registration_only: Option<bool>,
+    ) -> StorageBalance {
         let account = account_id.unwrap_or_else(env::predecessor_account_id);
         check(account != env::current_account_id(), E_CONTRACT_ACCOUNT);
         let deposit = env::attached_deposit().as_yoctonear();
@@ -545,12 +589,16 @@ impl Lifo {
                 check(deposit >= min, E_STORAGE);
                 let keep = if only { min } else { deposit };
                 refund = deposit - keep;
-                Account { storage: keep, ..Default::default() }
+                Account {
+                    storage: keep,
+                    ..Default::default()
+                }
             }
         };
         self.accounts.insert(account.clone(), acc);
         if refund > 0 {
-            let _ = Promise::new(env::predecessor_account_id()).transfer(NearToken::from_yoctonear(refund));
+            let _ = Promise::new(env::predecessor_account_id())
+                .transfer(NearToken::from_yoctonear(refund));
         }
         self.storage_balance_of(account).unwrap()
     }
@@ -559,7 +607,11 @@ impl Lifo {
     pub fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
         one_yocto();
         let account = env::predecessor_account_id();
-        let acc = self.accounts.get(&account).cloned().unwrap_or_else(|| fail(E_NOT_REGISTERED));
+        let acc = self
+            .accounts
+            .get(&account)
+            .cloned()
+            .unwrap_or_else(|| fail(E_NOT_REGISTERED));
         let available = acc.storage - self.storage_used(&acc);
         let amount = amount.map_or(available, |a| a.0);
         check(amount <= available, E_STORAGE_BALANCE);
@@ -579,7 +631,9 @@ impl Lifo {
         one_yocto();
         let _ = force;
         let account = env::predecessor_account_id();
-        let Some(acc) = self.accounts.get(&account).cloned() else { return false };
+        let Some(acc) = self.accounts.get(&account).cloned() else {
+            return false;
+        };
         check(acc.lots.is_empty(), E_HOLDS_TOKENS);
         check(acc.pending.is_empty(), E_PENDING);
         self.accounts.remove(&account);
@@ -590,7 +644,10 @@ impl Lifo {
     }
 
     pub fn storage_balance_bounds(&self) -> StorageBalanceBounds {
-        StorageBalanceBounds { min: U128(self.account_cost()), max: None }
+        StorageBalanceBounds {
+            min: U128(self.account_cost()),
+            max: None,
+        }
     }
 
     pub fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
@@ -649,7 +706,11 @@ impl Lifo {
             total_requested: U128(s.total_requested),
             total_filled: U128(s.total_filled),
             paid: U128(s.paid),
-            price: U128(if s.total_filled == 0 { 0 } else { mul_div(s.paid, 10u128.pow(18), s.total_filled) }),
+            price: U128(if s.total_filled == 0 {
+                0
+            } else {
+                mul_div(s.paid, 10u128.pow(18), s.total_filled)
+            }),
             bound: s.bound,
             open_requests: s.open_requests,
             paid_left: U128(s.paid_left),
@@ -667,7 +728,11 @@ impl Lifo {
                     RequestView {
                         id: U64(id),
                         epoch: U64(r.epoch),
-                        portions: r.portions.iter().map(|&(v, a, s)| (v, U128(a), U128(s))).collect(),
+                        portions: r
+                            .portions
+                            .iter()
+                            .map(|&(v, a, s)| (v, U128(a), U128(s)))
+                            .collect(),
                     }
                 })
                 .collect(),
@@ -790,7 +855,9 @@ impl Lifo {
 
     /// C6, C7, C9: computes and pays each settled request of `account` from its epoch's aggregates, exactly once.
     fn claim_settled(&mut self, account: &AccountId) -> Vec<ClaimView> {
-        let Some(mut acc) = self.accounts.get(account).cloned() else { return Vec::new() };
+        let Some(mut acc) = self.accounts.get(account).cloned() else {
+            return Vec::new();
+        };
         let mut claims = Vec::new();
         let mut keep = Vec::new();
         let mut total_paid = 0u128;
@@ -811,7 +878,11 @@ impl Lifo {
                     returned.push((v, a - got));
                 }
             }
-            let paid = if s.total_filled == 0 { 0 } else { mul_div(filled, s.paid, s.total_filled) };
+            let paid = if s.total_filled == 0 {
+                0
+            } else {
+                mul_div(filled, s.paid, s.total_filled)
+            };
             s.paid_left -= paid;
             s.open_requests -= 1;
             self.unclaimed_near -= paid;
@@ -830,14 +901,22 @@ impl Lifo {
                 add_lot(&mut acc.lots, v, a, self.params.max_lots);
             }
             if back > 0 {
-                ft_event("ft_mint", json!({"owner_id": account, "amount": U128(back), "memo": format!("unfilled {id}")}));
+                ft_event(
+                    "ft_mint",
+                    json!({"owner_id": account, "amount": U128(back), "memo": format!("unfilled {id}")}),
+                );
             }
             lifo_event(
                 "claim",
                 json!({"account_id": account, "request_id": U64(id), "epoch": U64(epoch), "filled": U128(filled),
                        "paid": U128(paid), "returned": pairs(&returned), "dust_returned": U128(dust)}),
             );
-            claims.push(ClaimView { request_id: U64(id), filled: U128(filled), paid: U128(paid), returned: pairs(&returned) });
+            claims.push(ClaimView {
+                request_id: U64(id),
+                filled: U128(filled),
+                paid: U128(paid),
+                returned: pairs(&returned),
+            });
         }
         if claims.is_empty() {
             return claims;
@@ -851,12 +930,26 @@ impl Lifo {
     }
 
     /// B1, B2: moves `amount` from the sender's newest lots to the receiver, keeping vintages.
-    fn transfer(&mut self, sender: &AccountId, receiver: &AccountId, amount: u128, memo: Option<String>) -> Vec<(u32, u128)> {
+    fn transfer(
+        &mut self,
+        sender: &AccountId,
+        receiver: &AccountId,
+        amount: u128,
+        memo: Option<String>,
+    ) -> Vec<(u32, u128)> {
         check(sender != receiver, E_SELF);
         check(amount > 0, E_ZERO);
-        let mut from = self.accounts.get(sender).cloned().unwrap_or_else(|| fail(E_BALANCE));
+        let mut from = self
+            .accounts
+            .get(sender)
+            .cloned()
+            .unwrap_or_else(|| fail(E_BALANCE));
         let moved = take(&mut from.lots, amount);
-        let mut to = self.accounts.get(receiver).cloned().unwrap_or_else(|| fail(E_NOT_REGISTERED));
+        let mut to = self
+            .accounts
+            .get(receiver)
+            .cloned()
+            .unwrap_or_else(|| fail(E_NOT_REGISTERED));
         for &(v, a) in &moved {
             add_lot(&mut to.lots, v, a, self.params.max_lots);
         }
@@ -866,15 +959,29 @@ impl Lifo {
             "ft_transfer",
             json!({"old_owner_id": sender, "new_owner_id": receiver, "amount": U128(amount), "memo": memo}),
         );
-        lifo_event("transfer", json!({"old_owner_id": sender, "new_owner_id": receiver, "lots": pairs(&moved)}));
+        lifo_event(
+            "transfer",
+            json!({"old_owner_id": sender, "new_owner_id": receiver, "lots": pairs(&moved)}),
+        );
         moved
     }
 
     /// B4: the refund of `ft_transfer_call`, `min(unused, amount, receiver's balance)`, returned to the sender as one lot
     /// of `oldest`. Public for the tests, which replay the model's `transfer_call` without a second block.
-    pub fn refund(&mut self, sender: &AccountId, receiver: &AccountId, amount: u128, oldest: u32, unused: u128) -> u128 {
-        let Some(mut to) = self.accounts.get(receiver).cloned() else { return 0 };
-        let Some(mut from) = self.accounts.get(sender).cloned() else { return 0 };
+    pub fn refund(
+        &mut self,
+        sender: &AccountId,
+        receiver: &AccountId,
+        amount: u128,
+        oldest: u32,
+        unused: u128,
+    ) -> u128 {
+        let Some(mut to) = self.accounts.get(receiver).cloned() else {
+            return 0;
+        };
+        let Some(mut from) = self.accounts.get(sender).cloned() else {
+            return 0;
+        };
         let held: u128 = to.lots.iter().map(|l| l.1).sum();
         let refund = unused.min(amount).min(held);
         if refund == 0 {
@@ -888,7 +995,10 @@ impl Lifo {
             "ft_transfer",
             json!({"old_owner_id": receiver, "new_owner_id": sender, "amount": U128(refund), "memo": "refund"}),
         );
-        lifo_event("transfer", json!({"old_owner_id": receiver, "new_owner_id": sender, "lots": [[oldest, U128(refund)]]}));
+        lifo_event(
+            "transfer",
+            json!({"old_owner_id": receiver, "new_owner_id": sender, "lots": [[oldest, U128(refund)]]}),
+        );
         refund
     }
 }

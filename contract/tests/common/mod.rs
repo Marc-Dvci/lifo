@@ -9,7 +9,10 @@ use near_sdk::json_types::{U128, U64};
 use near_sdk::mock::with_mocked_blockchain;
 use near_sdk::serde_json::Value;
 use near_sdk::test_utils::{get_logs, VMContextBuilder};
-use near_sdk::{env, test_vm_config, AccountId, Gas, MockedBlockchain, NearToken, PromiseResult, RuntimeFeesConfig};
+use near_sdk::{
+    env, test_vm_config, AccountId, Gas, MockedBlockchain, NearToken, PromiseResult,
+    RuntimeFeesConfig,
+};
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
@@ -28,7 +31,13 @@ pub fn contract_id() -> AccountId {
     "lifo.test".parse().unwrap()
 }
 
-fn install(who: &AccountId, now: u64, deposit: u128, results: Vec<PromiseResult>, storage: HashMap<Vec<u8>, Vec<u8>>) {
+fn install(
+    who: &AccountId,
+    now: u64,
+    deposit: u128,
+    results: Vec<PromiseResult>,
+    storage: HashMap<Vec<u8>, Vec<u8>>,
+) {
     let ctx = VMContextBuilder::new()
         .current_account_id(contract_id())
         .predecessor_account_id(who.clone())
@@ -58,7 +67,10 @@ fn message(payload: Box<dyn std::any::Any + Send>) -> String {
         .unwrap_or_default();
     const MARK: &str = "GuestPanic { panic_msg: \"";
     match text.find(MARK) {
-        Some(i) => text[i + MARK.len()..].trim_end_matches(" })").trim_end_matches('"').to_string(),
+        Some(i) => text[i + MARK.len()..]
+            .trim_end_matches(" })")
+            .trim_end_matches('"')
+            .to_string(),
         None => text,
     }
 }
@@ -98,7 +110,12 @@ pub fn call_with<R>(
     })
 }
 
-pub fn call<R>(who: &AccountId, now: u64, deposit: u128, f: impl FnOnce(&mut Lifo) -> R) -> Result<R, String> {
+pub fn call<R>(
+    who: &AccountId,
+    now: u64,
+    deposit: u128,
+    f: impl FnOnce(&mut Lifo) -> R,
+) -> Result<R, String> {
     call_with(who, now, deposit, vec![], f)
 }
 
@@ -109,7 +126,13 @@ pub fn view<R>(f: impl FnOnce(&Lifo) -> R) -> R {
 
 /// Deploys and initialises the contract on a fresh mocked chain.
 pub fn deploy(params: Params) {
-    install(&contract_id(), params.launch_time.0, 0, vec![], HashMap::new());
+    install(
+        &contract_id(),
+        params.launch_time.0,
+        0,
+        vec![],
+        HashMap::new(),
+    );
     let c = Lifo::new(params);
     env::state_write(&c);
     drop(c);
@@ -158,4 +181,15 @@ pub fn launch() -> Params {
         launch_time: U64(LAUNCH),
         max_lots: 16,
     }
+}
+
+/// Bytes the contract's storage takes, counted the way NEAR does: key, value and 40 bytes per record.
+pub fn storage_bytes() -> u64 {
+    let storage = with_mocked_blockchain(|b| b.take_storage());
+    let bytes = storage
+        .iter()
+        .map(|(k, v)| (k.len() + v.len() + 40) as u64)
+        .sum();
+    install(&contract_id(), 0, 0, vec![], storage);
+    bytes
 }

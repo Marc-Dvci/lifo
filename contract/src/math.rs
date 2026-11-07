@@ -4,7 +4,7 @@
 //! `U256` from the `uint` crate (`construct_uint!`). Each function is the same formula as in `lifo/model.py`, with the
 //! same rounding: what a buyer or seller receives is rounded down, so the remainder stays in the reserve.
 
-#![allow(clippy::manual_div_ceil)]
+#![allow(clippy::manual_div_ceil, clippy::assign_op_pattern)] // the second one is inside construct_uint!
 
 uint::construct_uint! {
     /// Unsigned 256-bit integer.
