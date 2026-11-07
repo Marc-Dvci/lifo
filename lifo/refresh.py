@@ -289,8 +289,9 @@ def write_recommended(rows: list[dict[str, Any]], meta: str) -> None:
         meta,
         f"\nGATE_BPS {p.gate_bps}, EPOCH_LENGTH {p.epoch_length // MINUTE} min, **VINTAGE_LENGTH {p.vintage_length // HOUR} h**, "
         f"SELL_FEE_BPS {p.sell_fee_bps}, no buy fee, no young-token fee, no minimum age. The gate, epoch and fee are the "
-        "ones chosen by the 144-set grid of run 01 (`results/sweep.csv`, run at a 1 h vintage; that grid has not been run "
-        "again). The only change in run 02 is the vintage, from 1 h to 24 h; the reasons are in `results/REFRESH.md`.\n",
+        "ones chosen by the 144-set grid of run 01 (`python -m lifo.sweep`, `results/SWEEP.md`), where a 1 h vintage "
+        "ranked first. The only change in run 02 is the vintage, from 1 h to 24 h; the reasons are in "
+        "`results/REFRESH.md`. The scenario tables, `results/SENSITIVITY.md` and the figures are drawn at this set.\n",
         f"\nLate group, NEAR back per NEAR invested, mean of {n} seeds, same agents and seeds under both markets:\n",
         "| scenario | late group LIFO | late group FIFO | gain | worst seed gain | seeds LIFO better | early LIFO | early FIFO | insider LIFO | insider FIFO | 1 h drop LIFO | 1 h drop FIFO |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|",

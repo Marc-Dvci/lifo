@@ -2,7 +2,7 @@
 
     python -m lifo.sweep --seeds 10 --workers 4      (about 9 minutes on 4 workers)
 
-Writes results/sweep.csv (every run), results/<scenario>.md (one table per scenario), results/RECOMMENDED.md and the
+Writes results/sweep.csv (every run), results/<scenario>.md (one table per scenario), results/SWEEP.md and the
 figures in results/figures/. Every number in those files comes from this command; all of it is simulated.
 """
 
@@ -27,6 +27,7 @@ GATES = (200, 500, 1000, 2000)
 EPOCHS = (5, 10, 30)  # minutes
 VINTAGES = (1, 6, 24)  # hours
 FEES = (50, 100, 200, 300)
+LAUNCH = (500, 10, 24, 50)  # the launch rules (requirements-v2 S5'): tables, figures and sensitivity are drawn here
 CALM_TOLERANCE = 0.01  # calm growth counts as "not worse" if the late group loses at most 1 cent per NEAR invested
 RANK_BAND = 0.02  # late-group gains closer than this to the best are ranked by the price drop instead
 
@@ -158,7 +159,7 @@ def write_tables(s: dict[tuple[str, Config], dict[str, float]], best: Config | N
         lines.append("| params | " + " | ".join(name for name, _ in COLUMNS) + " |")
         lines.append("|---" * (len(COLUMNS) + 1) + "|")
         for c, v in rows:
-            mark = " **(recommended)**" if c == best else ""
+            mark = " **(launch)**" if c == LAUNCH else " (top of the G1 ranking)" if c == best else ""
             cells = [f"{fmt(v['lifo_' + k])} ({fmt(v['fifo_' + k])})" for _, k in COLUMNS]
             lines.append(f"| {'/'.join(map(str, c))}{mark} | " + " | ".join(cells) + " |")
         (OUT / f"{scenario}.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
@@ -198,11 +199,10 @@ def main(argv: list[str] | None = None) -> int:
     write_tables(s, best, meta)
     from lifo.figures import draw_all
 
-    draw_all(s, best, rows, args.seeds)
+    draw_all(s, LAUNCH, rows, args.seeds)
     write_recommendation(s, best, passing, meta)
-    if best is not None:
-        with Pool(args.workers) as pool:
-            write_sensitivity(best, args.seeds, pool, meta)
+    with Pool(args.workers) as pool:
+        write_sensitivity(LAUNCH, args.seeds, pool, meta)
     print(f"{len(todo)} runs in {runtime:.0f} s; recommended {best}; {len(passing)} sets pass G1")
     return 0
 
@@ -210,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
 def write_recommendation(
     s: dict[tuple[str, Config], dict[str, float]], best: Config | None, passing: list[tuple[Config, float]], meta: str
 ) -> None:
-    lines = ["# Recommended parameters\n", meta]
+    lines = ["# The grid: gate G1 and the ranking\n", meta]
     total = len({c for _, c in s})
     lines.append(
         f"\nGate G1: {len(passing)} of {total} parameter sets give the late group more NEAR back per NEAR "
@@ -224,8 +224,11 @@ def write_recommendation(
     else:
         gate, epoch, vintage, fee = best
         lines.append(
-            f"\nRecommended: GATE_BPS {gate}, EPOCH_LENGTH {epoch} min, VINTAGE_LENGTH {vintage} h, "
-            f"SELL_FEE_BPS {fee}.\n"
+            f"\nTop of the ranking: GATE_BPS {gate}, EPOCH_LENGTH {epoch} min, VINTAGE_LENGTH {vintage} h, "
+            f"SELL_FEE_BPS {fee}. The launch set is {'/'.join(map(str, LAUNCH))} "
+            f"({'passes' if LAUNCH in dict(passing) else 'fails'} G1): the 24 h vintage was chosen in run 02 against "
+            "the refresh attack, see `results/REFRESH.md` and `results/RECOMMENDED.md`. The table below is the top "
+            "of the ranking; the launch set's rows are marked in the scenario tables.\n"
         )
         lines.append(
             "\n| scenario | late group LIFO | late group FIFO | gain | worst seed gain | early LIFO | early FIFO "
@@ -255,7 +258,7 @@ def write_recommendation(
         lines.append("\nTop 10 sets passing G1 (gate/epoch/vintage/fee, smaller of the two late-group gains):\n")
         for c, g in passing[:10]:
             lines.append(f"- {'/'.join(map(str, c))}: {g:.3f}")
-    (OUT / "RECOMMENDED.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    (OUT / "SWEEP.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def write_sensitivity(best: Config, seeds: int, pool: Any, meta: str) -> None:
