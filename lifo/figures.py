@@ -52,7 +52,8 @@ def paths(best: Any, seed: int = 1) -> None:
     axes[0].set_ylabel("price\n(NEAR per 1e9 tokens)")
     axes[1].set_ylabel("reserve (NEAR)")
     axes[2].set_ylabel("supply\n(million tokens)")
-    axes[2].set_xlabel("day")
+    axes[2].set_xlabel("day (the 6 days around the dump; the 60-day paths are in scenarios_price.png)")
+    axes[2].set_xlim(17, 23)
     axes[0].legend(frameon=False, loc="upper left")
     save(fig, "insider_dump_paths.png")
 
@@ -108,7 +109,7 @@ def refresh(s: dict[Any, dict[str, float]], best: Any) -> None:
     ax.bar([i + 0.2 for i in x], gains, 0.4, color="#c0392b", label="what it added to the insider's exit (NEAR)")
     ax.set_xticks(list(x), [f"sell fee {f} bps" for f in FEES])
     ax.axhline(0, color="black", lw=0.6)
-    ax.legend(frameon=False)
+    ax.legend(frameon=False, loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, fontsize=8)
     save(fig, "refresh_cost_benefit.png")
 
 

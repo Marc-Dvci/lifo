@@ -119,7 +119,7 @@ def default_params(**overrides: int) -> Params:
         "virtual_tokens": 1_073_000_000 * TOKEN,
         "max_supply": 1_073_000_000 * TOKEN * 8 // 10,
         "gate_bps": 500,
-        "sell_fee_bps": 100,
+        "sell_fee_bps": 50,
         "epoch_length": 10 * MINUTE,
         "vintage_length": HOUR,
         "launch_time": 0,
