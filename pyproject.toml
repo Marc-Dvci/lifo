@@ -9,8 +9,12 @@ target-version = "py312"
 select = ["E4", "E7", "E9", "F", "B", "I"]
 
 [tool.mypy]
-files = ["app"]
+files = ["lifo", "tests"]
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["app.*", "tests.test_server", "tests.test_core"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -28,14 +32,14 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["app"]
+source = ["lifo"]
 branch = true
 
 [tool.coverage.report]
-# TEMPLATE: list the decision core here (the modules whose rules decide outcomes), and publish this figure under
-# that name ("decision core coverage"), never the total.
-include = ["*/app/core.py"]
-fail_under = 90
+# The decision core is the reference model: its rules decide who is paid. Publish this figure under that name
+# ("model coverage"), never the total. The simulator and the vector generator are run, not covered.
+include = ["*/lifo/model.py"]
+fail_under = 95
 show_missing = true
 
 [tool.codespell]
