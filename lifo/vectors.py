@@ -18,7 +18,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from lifo.model import DAY, HOUR, MINUTE, NEAR, TOKEN, Lifo, LifoError, Params, gate_fill
+from lifo.model import DAY, MINUTE, NEAR, TOKEN, Lifo, LifoError, Params, gate_fill
 
 SEED = 20261107
 RANDOM_CASES = 200
@@ -52,7 +52,7 @@ def realistic(**overrides: int) -> Params:
         gate_bps=500,
         sell_fee_bps=100,
         epoch_length=10 * MINUTE,
-        vintage_length=HOUR,
+        vintage_length=DAY,
         launch_time=1_800_000_000 * 10**9,
         max_lots=16,
     )

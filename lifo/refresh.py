@@ -156,6 +156,10 @@ class Table:
         lifo, fifo = self.by[(variant, scenario, "lifo")], self.by[(variant, scenario, "fifo")]
         return sum(float(lifo[s]["late_result"]) > float(fifo[s]["late_result"]) for s in self.seeds)
 
+    def worst_gain(self, variant: str, scenario: str) -> float:
+        lifo, fifo = self.by[(variant, scenario, "lifo")], self.by[(variant, scenario, "fifo")]
+        return min(float(lifo[s]["late_result"]) - float(fifo[s]["late_result"]) for s in self.seeds)
+
     def best_strategy(self, variant: str) -> tuple[str, str, float]:
         best = max(STRATEGIES, key=lambda t: self.insider_total(variant, t[1], "lifo"))
         return best[0], best[1], self.insider_total(variant, best[1], "lifo")
@@ -208,7 +212,9 @@ def write_md(rows: list[dict[str, Any]], meta: str) -> str:
         "everything at the peak.\n"
     )
     out += decomposition_md(t, base)
-    out.append("\nPaired per seed, LIFO:\n")
+    out.append(f"\nThe same at the recommended design ({FINAL}):\n")
+    out += decomposition_md(t, FINAL)
+    out.append("\nPaired per seed, LIFO, at the run 01 rules:\n")
     for a, b, label in (
         ("refresh_attack", "slow_exit", "refresh vs slow exit over 12 h"),
         ("refresh_attack", "slow_exit_48", "refresh vs slow exit over 48 h"),
@@ -271,6 +277,52 @@ def write_md(rows: list[dict[str, Any]], meta: str) -> str:
             f"| {v} | {f(t.m(v, 'insider_dump', 'lifo', 'max_1h_drop'))} | {f(t.m(v, 'insider_dump', 'lifo', 'early_result'), 3)} |"
         )
     return "\n".join(out) + "\n"
+
+
+def write_recommended(rows: list[dict[str, Any]], meta: str) -> None:
+    t = Table(rows)
+    n = len(t.seeds)
+    p = params_for(FINAL)
+    v = FINAL
+    lines = [
+        "# Recommended parameters (run 02)\n",
+        meta,
+        f"\nGATE_BPS {p.gate_bps}, EPOCH_LENGTH {p.epoch_length // MINUTE} min, **VINTAGE_LENGTH {p.vintage_length // HOUR} h**, "
+        f"SELL_FEE_BPS {p.sell_fee_bps}, no buy fee, no young-token fee, no minimum age. The gate, epoch and fee are the "
+        "ones chosen by the 144-set grid of run 01 (`results/sweep.csv`, run at a 1 h vintage; that grid has not been run "
+        "again). The only change in run 02 is the vintage, from 1 h to 24 h; the reasons are in `results/REFRESH.md`.\n",
+        f"\nLate group, NEAR back per NEAR invested, mean of {n} seeds, same agents and seeds under both markets:\n",
+        "| scenario | late group LIFO | late group FIFO | gain | worst seed gain | seeds LIFO better | early LIFO | early FIFO | insider LIFO | insider FIFO | 1 h drop LIFO | 1 h drop FIFO |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for sc in ("calm", "insider_dump", "panic", "slow_distribution", "refresh_attack"):
+        lf, ff = t.m(v, sc, "lifo", "late_result"), t.m(v, sc, "fifo", "late_result")
+        lines.append(
+            f"| {sc} | {lf:.3f} | {ff:.3f} | {lf - ff:+.3f} | {t.worst_gain(v, sc):+.3f} | {t.wins(v, sc)} of {n} "
+            f"| {t.m(v, sc, 'lifo', 'early_result'):.3f} | {t.m(v, sc, 'fifo', 'early_result'):.3f} "
+            f"| {t.m(v, sc, 'lifo', 'insider_result'):.3f} | {t.m(v, sc, 'fifo', 'insider_result'):.3f} "
+            f"| {t.m(v, sc, 'lifo', 'max_1h_drop'):.3f} | {t.m(v, sc, 'fifo', 'max_1h_drop'):.3f} |"
+        )
+
+    def share(kind: str, field: str) -> float:
+        return 100 * t.m(v, "insider_dump", kind, field)
+
+    lines.append(
+        "\nInsider dump, the 48 hours after the peak: share of the NEAR paid out that went to the newest third of "
+        f"vintages {share('lifo', 'crash_share_newest_third'):.0f} % (LIFO) against "
+        f"{share('fifo', 'crash_share_newest_third'):.0f} % (FIFO); to the oldest third "
+        f"{share('lifo', 'crash_share_oldest_third'):.0f} % against {share('fifo', 'crash_share_oldest_third'):.0f} %. "
+        f"Longest wait of the oldest holders for their last fill: {t.m(v, 'insider_dump', 'lifo', 'oldest_wait_max_h'):.1f} h "
+        "(mean over seeds of the longest).\n"
+    )
+    honest = max(t.insider_total(v, sc, "lifo") for _, sc in STRATEGIES if sc not in REFRESHERS)
+    lines.append(
+        f"\nRefresh attack at these parameters: the insider ends with {t.insider_total(v, 'refresh_attack', 'lifo'):.2f} NEAR "
+        f"(cash plus holdings) when it refreshes over the 12 hours before the dump, against {honest:.2f} NEAR for its best "
+        f"honest exit and {t.insider_total(v, 'refresh_attack', 'fifo'):.2f} NEAR under FIFO. The refresh is not closed. "
+        "See `results/REFRESH.md`.\n"
+    )
+    (OUT / "RECOMMENDED.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def figure(rows: list[dict[str, Any]], final: str) -> None:
@@ -350,6 +402,7 @@ def main(argv: list[str] | None = None) -> int:
         + ".\n"
     )
     (OUT / "REFRESH.md").write_text(write_md(rows, meta), encoding="utf-8", newline="\n")
+    write_recommended(rows, meta)
     if args.final in VARIANTS:
         figure(rows, args.final)
     print(f"{len(rows)} rows; REFRESH.md written")

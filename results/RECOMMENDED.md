@@ -1,35 +1,23 @@
-# Recommended parameters
+# Recommended parameters (run 02)
 
-Simulated, not market data. Command: `python -m lifo.sweep --seeds 10 --workers 4`. Seeds 1 to 10, means over seeds. Commit `f92a59b`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots.
-Runtime: 513 s for 9000 runs.
-
-
-Gate G1: 99 of 144 parameter sets give the late group more NEAR back per NEAR under LIFO than under FIFO in both the insider dump and the panic, while calm growth loses at most 0.01 NEAR per NEAR. Ranking: sets whose smaller late-group gain (insider dump, panic) is within 0.02 of the best count as equal; among them, the smallest mean largest one-hour price drop in those two scenarios.
+Simulated, not market data. Command: `python -m lifo.refresh --seeds 10 --workers 4`. Seeds 1 to 10. Commit `347b122-dirty`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots. Runs: 4000, in `results/refresh.csv`.
 
 
-Recommended: GATE_BPS 500, EPOCH_LENGTH 10 min, VINTAGE_LENGTH 1 h, SELL_FEE_BPS 50.
+GATE_BPS 500, EPOCH_LENGTH 10 min, **VINTAGE_LENGTH 24 h**, SELL_FEE_BPS 50, no buy fee, no young-token fee, no minimum age. The gate, epoch and fee are the ones chosen by the 144-set grid of run 01 (`results/sweep.csv`, run at a 1 h vintage; that grid has not been run again). The only change in run 02 is the vintage, from 1 h to 24 h; the reasons are in `results/REFRESH.md`.
 
 
-| scenario | late group LIFO | late group FIFO | gain | worst seed gain | early LIFO | early FIFO | insider LIFO | insider FIFO | 1 h drop LIFO | 1 h drop FIFO |
-|---|---|---|---|---|---|---|---|---|---|---|
-| calm | 1.284 | 1.275 | 0.009 | -0.034 | 2.220 | 2.308 | 7.012 | 7.124 | 0.234 | 0.223 |
-| insider_dump | 0.781 | 0.317 | 0.464 | 0.240 | 1.275 | 1.374 | 1.774 | 5.823 | 0.344 | 0.917 |
-| panic | 0.879 | 0.721 | 0.158 | -0.073 | 1.300 | 1.661 | 2.156 | 2.298 | 0.343 | 0.875 |
-| slow_distribution | 0.710 | 0.653 | 0.057 | -0.001 | 1.156 | 1.227 | 2.940 | 2.987 | 0.318 | 0.874 |
-| refresh_attack | 0.430 | 0.319 | 0.111 | 0.052 | 1.249 | 1.374 | 5.314 | 5.795 | 0.344 | 0.916 |
+Late group, NEAR back per NEAR invested, mean of 10 seeds, same agents and seeds under both markets:
 
-Refresh attack at these parameters: the insider's refresh cost 0.58 NEAR and raised what it got out by 28.32 NEAR compared with dumping without a refresh.
+| scenario | late group LIFO | late group FIFO | gain | worst seed gain | seeds LIFO better | early LIFO | early FIFO | insider LIFO | insider FIFO | 1 h drop LIFO | 1 h drop FIFO |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| calm | 1.284 | 1.275 | +0.009 | -0.034 | 5 of 10 | 2.220 | 2.308 | 7.012 | 7.124 | 0.234 | 0.223 |
+| insider_dump | 0.781 | 0.317 | +0.464 | +0.237 | 10 of 10 | 1.271 | 1.374 | 1.811 | 5.823 | 0.344 | 0.917 |
+| panic | 0.877 | 0.721 | +0.157 | -0.074 | 7 of 10 | 1.306 | 1.661 | 2.156 | 2.298 | 0.343 | 0.875 |
+| slow_distribution | 0.709 | 0.653 | +0.056 | +0.001 | 10 of 10 | 1.165 | 1.227 | 2.940 | 2.987 | 0.318 | 0.874 |
+| refresh_attack | 0.449 | 0.319 | +0.130 | +0.084 | 10 of 10 | 1.255 | 1.374 | 5.138 | 5.795 | 0.344 | 0.916 |
+
+Insider dump, the 48 hours after the peak: share of the NEAR paid out that went to the newest third of vintages 74 % (LIFO) against 32 % (FIFO); to the oldest third 23 % against 64 %. Longest wait of the oldest holders for their last fill: 16.0 h (mean over seeds of the longest).
 
 
-Top 10 sets passing G1 (gate/epoch/vintage/fee, smaller of the two late-group gains):
+Refresh attack at these parameters: the insider ends with 41.10 NEAR (cash plus holdings) when it refreshes over the 12 hours before the dump, against 25.78 NEAR for its best honest exit and 46.36 NEAR under FIFO. The refresh is not closed. See `results/REFRESH.md`.
 
-- 500/5/1/100: 0.170
-- 500/5/6/100: 0.169
-- 500/5/24/100: 0.168
-- 500/5/1/50: 0.167
-- 500/5/6/50: 0.166
-- 500/5/24/50: 0.165
-- 500/10/1/100: 0.161
-- 500/10/6/100: 0.160
-- 500/10/24/100: 0.159
-- 500/5/1/200: 0.159

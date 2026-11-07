@@ -1,4 +1,4 @@
-# LIFO: the rules
+﻿# LIFO: the rules
 
 LIFO is a memecoin with its own market: a bonding curve that sells tokens for NEAR and buys them back from its reserve. Each token carries the date it was bought from that market, its vintage. When more people want out than the reserve lets go in one batch, the reserve pays the newest vintages first and the oldest holders wait. When the gate does not bind, every seller is paid in full in the next batch.
 
@@ -15,7 +15,7 @@ The reference model is [`lifo/model.py`](lifo/model.py); the tests are in [`test
 
 ## Parameters
 
-Values recommended by the sweep ([`results/RECOMMENDED.md`](results/RECOMMENDED.md)). The curve values are the starting values of the spec, not changed by the simulation.
+Gate, epoch and fee come from the run 01 sweep; the vintage length was changed to 24 hours in run 02 ([`results/RECOMMENDED.md`](results/RECOMMENDED.md), [`results/REFRESH.md`](results/REFRESH.md)). The curve values are the starting values of the spec, not changed by the simulation.
 
 | Parameter | Value | Meaning |
 |---|---|---|
@@ -24,9 +24,11 @@ Values recommended by the sweep ([`results/RECOMMENDED.md`](results/RECOMMENDED.
 | `MAX_SUPPLY` | 80 % of `VIRTUAL_TOKENS` | buys that would pass it are refused; this caps the reserve at 4 x `VIRTUAL_NEAR` = 120 NEAR |
 | `GATE_BPS` | 500 (5 % of the reserve per epoch) | the gate |
 | `EPOCH_LENGTH` | 10 minutes | one batch |
-| `VINTAGE_LENGTH` | 1 hour | resolution of the line |
+| `VINTAGE_LENGTH` | 24 hours | resolution of the line; buyers of the same day share a vintage and are filled pro rata |
 | `SELL_FEE_BPS` | 50 (0.5 %) | stays in the reserve |
-| `MAX_LOTS` | 16 | lots per account before merging |
+| `MAX_LOTS` | 16 | lots per account before merging (16 days of purchases at a 24 hour vintage) |
+
+The model also has `BUY_FEE_BPS`, `YOUNG_AGE`, `YOUNG_FEE_BPS` and `MIN_AGE`, three ways of making a refresh (below) more expensive. They are tested and simulated, they did not close the attack, and the launch values are 0 for all four. A contract does not need them.
 
 ## Rounding
 
@@ -41,7 +43,7 @@ Every rounding favours the reserve.
 
 ## What the simulation shows
 
-The simulation runs 60 days at epoch resolution with 20 early buyers, one insider who buys first, retail arrivals with random sizes and holding times, a late group of 120 buyers in the three days before day 20, and holders who sell everything when the price falls a drawn fraction below their peak. Each scenario runs on the same seed and the same agents twice: under LIFO, and under a FIFO baseline that has the same curve and fee but executes every sell at once. 10 seeds, 144 parameter sets, 9,000 runs. Full tables: [`results/`](results/).
+The simulation runs 60 days at epoch resolution with 20 early buyers, one insider who buys first, retail arrivals with random sizes and holding times, a late group of 120 buyers in the three days before day 20, and holders who sell everything when the price falls a drawn fraction below their peak. Each scenario runs on the same seed and the same agents twice: under LIFO, and under a FIFO baseline that has the same curve and fee but executes every sell at once. 10 seeds. Run 01 swept 144 parameter sets (9,000 runs, at a 1 hour vintage; `results/sweep.csv`); run 02 re-ran the five scenarios at the 24 hour vintage and compared 16 variants of the rules (4,000 runs, `results/refresh.csv`). Full tables: [`results/`](results/).
 
 At the recommended parameters, the late group's NEAR back per NEAR invested (mean of 10 seeds):
 
@@ -49,20 +51,24 @@ At the recommended parameters, the late group's NEAR back per NEAR invested (mea
 |---|---|---|---|
 | calm growth | 1.284 | 1.275 | 5 of 10 seeds |
 | insider dump at the peak | 0.781 | 0.317 | 10 of 10 |
-| panic after a shock | 0.879 | 0.721 | 7 of 10 |
-| slow distribution by early holders | 0.710 | 0.653 | 9 of 10 |
-| refresh attack | 0.430 | 0.319 | 10 of 10 |
+| panic after a shock | 0.877 | 0.721 | 7 of 10 |
+| slow distribution by early holders | 0.709 | 0.653 | 10 of 10 |
+| refresh attack | 0.449 | 0.319 | 10 of 10 |
 
 ![Price, reserve and supply around the insider dump, FIFO and LIFO](results/figures/insider_dump_paths.png)
 
 *Insider dump, seed 1, days 17 to 23: under FIFO the price falls in one epoch; under LIFO the gate spreads the fall over hours, and the late group is paid first. Simulated.*
 
+![The insider's NEAR and the late group's result for seven insider strategies, FIFO and LIFO](results/figures/refresh_decomposition.png)
+
+*Seven insider strategies, mean of 10 seeds. Dump: sell everything at the peak. Slow: sell in slices over 12 or 48 hours, starting 12 or 48 hours before (-) or at (+) the peak, never buy back. Refresh: sell in slices and buy back with each payout from a second account, 12 hours or 24 to 36 hours before the peak, then dump. Simulated.*
+
 In the 48 hours after the peak of the insider dump, the newest third of vintages got 74 % of the NEAR paid out under LIFO and 32 % under FIFO. The largest one-hour price drop was 34 % under LIFO and 92 % under FIFO.
 
 ## Attacks and limits
 
-- **Buying a better seat by round trip.** A holder can sell old tokens and buy fresh ones from a second account. Tokens leave newest first, so it takes a second account, which is free. In the refresh-attack scenario the insider refreshes over the 12 hours before dumping: it cost 0.58 NEAR in fees and added 28.32 NEAR to what the insider got out, compared with dumping without a refresh (10-seed mean). At every fee in the grid (50 to 300 bps) the refresh paid for itself many times ([`results/figures/refresh_cost_benefit.png`](results/figures/refresh_cost_benefit.png)). LIFO does not stop an insider who plans the dump and refreshes first. The late group still did better than under FIFO (0.430 against 0.319) because the gate slows the fall, but far worse than without the refresh (0.781).
-- **Early holders are stuck in a crash.** That is the trade. In the insider dump the oldest holders waited up to 16 hours on average for their last fill, and early buyers got 1.275 NEAR back per NEAR against 1.374 under FIFO. In the panic, 1.300 against 1.661.
+- **Buying a better seat by round trip (the refresh). Not closed.** A holder can sell old tokens in calm epochs and buy fresh ones from a second account. Tokens leave newest first, so it takes a second account, which is free. In the simulation the insider put in 8 NEAR and the best honest exit (a 48 hour slow exit) ended with 25.78 NEAR. Refreshing over the 12 hours before the dump and then dumping ended with 41.10 NEAR (FIFO: 46.36), better for the insider than every honest exit on 10 of 10 seeds. It is a profitable attack, not only griefing: the late group got 0.449 NEAR per NEAR against 0.750 to 0.783 when the insider exited honestly. A plain dump is what LIFO punishes (14.49 NEAR for the insider); a planned refresh undoes that. A buy fee, a sell fee on young tokens, a minimum age and vintages from 24 hours to 7 days were tested; none cut the insider's gain by more than about one NEAR at a timing the insider does not control, and the longer vintages only helped when the dump fell before a vintage boundary ([`results/REFRESH.md`](results/REFRESH.md)). The late group still did better than under FIFO in this case (0.449 against 0.319, 10 of 10 seeds). What a planned insider can still do is exit at close to the FIFO price. The 24 hour vintage was kept because it costs genuine buyers nothing and cut the refresh gain by about one NEAR.
+- **Early holders are stuck in a crash.** That is the trade. In the insider dump the oldest holders waited up to 16.0 hours on average (mean over seeds of the longest wait) for their last fill, and early buyers got 1.271 NEAR back per NEAR against 1.374 under FIFO. In the panic, 1.306 against 1.661.
 - **A visible queue.** Anyone can see when the gate binds. The simulation assumes holders panic at 75 % of their usual threshold after a batch where the gate bound. Varying that from 1.0 (no effect) to 0.5 changed the late group's result by under 0.07 NEAR per NEAR ([`results/SENSITIVITY.md`](results/SENSITIVITY.md)); under LIFO, panicking sooner helps the newest sellers, since they are paid first. This is an assumption about behaviour, not a measurement.
 - **Calm growth is not better.** The gate bound in a few epochs even in calm growth. The late group's mean was 0.009 higher under LIFO, but LIFO was better on only 5 of 10 seeds, and the worst seed lost 0.034 NEAR per NEAR.
 - **Panic is not always better.** On 3 of 10 seeds the late group did worse under LIFO in the panic (worst: 0.073 NEAR per NEAR less).
