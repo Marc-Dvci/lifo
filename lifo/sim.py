@@ -20,6 +20,18 @@ PEAK_DAY = 20  # the late wave buys in the three days before it; the dump, the s
 CRASH_WINDOW = 2 * DAY  # payouts by vintage are measured over this window after the peak
 QUEUE_FEAR = 0.75  # assumed: when the last batch hit the gate, holders panic at 75 % of their usual threshold
 SCENARIOS = ("calm", "insider_dump", "panic", "slow_distribution", "refresh_attack")
+EXIT_SCENARIOS = ("slow_exit", "slow_exit_48", "slow_after", "slow_after_48")  # slices, never bought back
+ALL_SCENARIOS = SCENARIOS + EXIT_SCENARIOS + ("refresh_early",)
+REFRESHERS = ("refresh_attack", "refresh_early")
+# When the insider sells in slices: (hours from the peak at which it starts, hours it spreads the sales over).
+WINDOWS = {
+    "refresh_attack": (-12, 12),
+    "refresh_early": (-36, 12),  # refreshes 24 to 36 hours before the dump, outside a 24 h young-fee window
+    "slow_exit": (-12, 12),
+    "slow_exit_48": (-48, 48),
+    "slow_after": (0, 12),
+    "slow_after_48": (0, 48),
+}
 GROUPS = ("insider", "early", "retail", "late")
 
 
@@ -33,9 +45,10 @@ def to_yocto(near: float) -> int:
 class FifoMarket(Lifo):
     """The baseline: the same curve and fee, every sell executed at once in arrival order, no gate, no batch."""
 
-    def sell_now(self, account: str, amount: int) -> tuple[int, list[tuple[int, int]]]:
-        portions = self._take(account, amount)
-        paid = sell_paid(self.x, self.y, amount, self.params.sell_fee_bps)
+    def sell_now(self, account: str, amount: int, now: int) -> tuple[int, list[tuple[int, int]]]:
+        portions = self._take(account, amount, self.max_sellable_vintage(now))
+        gross = sell_paid(self.x, self.y, amount, self.params.sell_fee_bps)
+        paid = self.payout(dict(portions), self.epoch(now), gross)
         self.reserve -= paid
         self.supply -= amount
         self.paid_out[account] = self.paid_out.get(account, 0) + paid
@@ -120,7 +133,7 @@ class Run:
 
 
 def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: float = QUEUE_FEAR) -> Run:
-    if scenario not in SCENARIOS:
+    if scenario not in ALL_SCENARIOS:
         raise ValueError(scenario)
     steps_per_day = DAY // params.epoch_length
     steps = DAYS * steps_per_day
@@ -143,7 +156,9 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
         by_step.setdefault(int(s), []).append(i)
     peak_step = PEAK_DAY * steps_per_day
     crash_end = peak_step + CRASH_WINDOW // params.epoch_length
-    refresh_from = peak_step - 12 * HOUR // params.epoch_length
+    start_h, length_h = WINDOWS.get(scenario, (-12, 12))
+    refresh_from = peak_step + start_h * HOUR // params.epoch_length
+    refresh_to = refresh_from + length_h * HOUR // params.epoch_length
     slow_every = 6 * HOUR // params.epoch_length
     order_rng = np.random.default_rng([seed, 7])
     pending: set[str] = set()
@@ -174,6 +189,7 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
             sell_start[i] = -1
 
     def sell(account: str, amount: int, step: int, now: int) -> None:
+        amount = min(amount, market.sellable(account, now))
         if amount <= 0:
             return
         if lifo:
@@ -181,7 +197,7 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
             pending.add(account)
         else:
             assert isinstance(market, FifoMarket)
-            paid, portions = market.sell_now(account, amount)
+            paid, portions = market.sell_now(account, amount, now)
             credit(account, paid, amount)
             if step >= peak_step and step < crash_end:
                 for v, a in portions:
@@ -230,11 +246,13 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
             theta = theta * 0.5
         want = holding & ~selling & ((price < peak * (1 - theta)) | (agents.hold_until <= step))
         if step == peak_step:
-            if scenario in ("insider_dump", "refresh_attack"):
+            if scenario in ("insider_dump",) + REFRESHERS:
                 want[insider] = True
             if scenario == "panic":
                 rumour = np.flatnonzero(early_mask)[::2]
                 want[rumour] = holding[rumour]
+        if scenario in EXIT_SCENARIOS and step == refresh_to:
+            want[insider] = True  # what the slices did not sell goes at the end of the window
         for i in np.flatnonzero(want).tolist():
             selling[i] = True
             sell_start[i] = step
@@ -243,17 +261,21 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
             for i in np.flatnonzero((group_arr == "early") | (group_arr == "insider")).tolist():
                 if holding[i] and not selling[i]:
                     sell(names[i], min(market.balance(names[i]), int(initial_tokens[i] * 0.02)), step, now)
-        if scenario == "refresh_attack" and refresh_from <= step < peak_step:
+        if scenario in WINDOWS and refresh_from <= step < refresh_to:
             if step == refresh_from:
                 refresh_tokens_before = holdings(names[insider])
-            # In slices over 12 hours from the old account; each payout buys at once into a second account.
-            chunk = refresh_tokens_before * 3 // (2 * (peak_step - refresh_from))
+            # In slices from the old account. A refresh buys at once into a second account with each payout; a slow
+            # exit keeps the NEAR.
+            chunk = refresh_tokens_before * 3 // (2 * (refresh_to - refresh_from))
             sell(names[insider], min(market.balance(names[insider]), chunk), step, now)
-            got_near = run.received.pop(insider, 0)
+            got_near = run.received.pop(insider, 0) if scenario in REFRESHERS else 0
             if got_near:
                 run.sold.pop(insider, None)
-                market.buy(fresh, got_near, now)
-            if step == peak_step - 1:
+                try:
+                    market.buy(fresh, got_near, now)
+                except LifoError:  # too small to buy anything: keep the NEAR
+                    run.received[insider] = run.received.get(insider, 0) + got_near
+            if scenario in REFRESHERS and step == refresh_to - 1:
                 lost = refresh_tokens_before - holdings(names[insider]) - holdings(fresh)
                 run.refresh_cost = lost * price / TOKEN
         # 5. Sellers ask for everything they hold, every epoch until they are out (no carry-over in LIFO).
@@ -261,7 +283,7 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
         order_rng.shuffle(sellers)
         for i in sellers:
             for account in [names[i], fresh] if i == insider else [names[i]]:
-                sell(account, market.balance(account), step, now)
+                sell(account, market.sellable(account, now), step, now)
             if not lifo:
                 finish_if_done(i, step)
         if lifo:
