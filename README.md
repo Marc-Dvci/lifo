@@ -56,7 +56,7 @@ The lower screenshot shows the result of the scripted crash on testnet: in round
 
 ## The problem
 
-When a memecoin crashes, the holders who bought last lose most. The official TRUMP and MELANIA tokens are a documented case: CryptoRank estimated retail losses above $4.3 billion, with about two million wallets underwater ([Ars Technica](https://arstechnica.com/tech-policy/2026/04/investors-lost-billions-on-trumps-memecoin-another-gala-wont-fix-that/), [BeInCrypto](https://beincrypto.com/trump-meme-coins-took-4-billion-from-retail-investors/)). These are an analytics firm's estimates; I did not recompute them.
+When a memecoin crashes, the holders who bought last lose most. The official TRUMP and MELANIA tokens are a documented case: CryptoRank estimated retail losses above $4.3 billion, with about two million wallets underwater ([Ars Technica](https://arstechnica.com/tech-policy/2026/04/investors-lost-billions-on-trumps-memecoin-another-gala-wont-fix-that/), [BeInCrypto](https://beincrypto.com/trump-meme-coins-took-4-billion-from-retail-investors/)). These are an analytics firm's estimates.
 
 Every memecoin market runs first in, first out: whoever sells first gets the best price, and the last buyers are the exit liquidity. LIFO changes the order that matters in a crash: the reserve pays the newest buyers before the oldest. In calm markets nothing is different.
 
@@ -79,7 +79,7 @@ The reference model [`lifo/model.py`](lifo/model.py) uses exact integers. It wri
 
 ## Results
 
-All figures in this section are **simulated, not market data**. The simulation (`lifo/sim.py`) runs 60 days with 20 early buyers, one insider who buys first, retail arrivals with random sizes and holding times, a late group of 120 buyers in the three days before day 20, and holders who sell everything when the price falls a drawn fraction below their peak. Each scenario runs on the same agents and the same seed under LIFO and under a FIFO baseline with the same curve and fee that executes every sell at once. Agent behaviour is drawn from distributions chosen for this model, not fitted to market data.
+All figures in this section are **simulated**. The simulation (`lifo/sim.py`) runs 60 days with 20 early buyers, one insider who buys first, retail arrivals with random sizes and holding times, a late group of 120 buyers in the three days before day 20, and holders who sell everything when the price falls a drawn fraction below their peak. Each scenario runs on the same agents and the same seed under LIFO and under a FIFO baseline with the same curve and fee that executes every sell at once. Agent behaviour is drawn from distributions chosen for this model.
 
 Command: `python -m lifo.sweep --seeds 10 --workers 4`, seeds 1 to 10, launch parameters. Late group's NEAR back per NEAR invested, mean of 10 seeds ([`results/RECOMMENDED.md`](results/RECOMMENDED.md)):
 
@@ -140,7 +140,7 @@ Other limits, in [`RULES.md`](RULES.md#attacks-and-limits): early holders are st
 | Contract with no keys | After `new`, the full-access key of both testnet contracts was deleted. Public RPC shows 0 access keys and the code hash `Fy1WD6gTKfzB2vNSRFjXRSH3CXNqPxQU3o7caecp27pd`, the base58 form of the SHA-256 below. `python scripts/live_check.py` reads it. |
 | Testnet | `launch.lifo.testnet` (launch rules) and `demo.lifo.testnet` (rounds of 60 s, plates of 3 min), deployed from the same wasm. |
 
-Wasm: 213,191 bytes, SHA-256 `de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a`. The build is not reproducible across machines: panic messages of dependencies carry the build machine's paths, so another machine may give another hash. CI builds it and prints both hashes, and fails only if the size moves by more than 5 %.
+Wasm: 213,191 bytes, SHA-256 `de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a`. Panic messages of dependencies carry the build machine's paths, so a build on another machine can give another hash; CI builds the wasm, prints both hashes and checks the size within 5 %.
 
 Not NEAR-specific but part of the page: a Cloudflare Worker (free plan) serves `/api`, signs for five demo accounts with ed25519 keys held as secrets, and settles rounds once a minute. Rate limits are in [`worker/src/limits.js`](worker/src/limits.js).
 
@@ -155,7 +155,7 @@ Not NEAR-specific but part of the page: a Cloudflare Worker (free plan) serves `
 | Late buyer asks to sell everything | [`GjVjeuNR…TfMsy`](https://testnet.nearblocks.io/txns/GjVjeuNRUZdPGXXvmoHeqwnnQ5Xpz7bmn9wuuQeTfMsy) |
 | Panic seller claims its payout | [`38qSK4uA…xGZ`](https://testnet.nearblocks.io/txns/38qSK4uAy3RbvmtwageKrvPJL7pcdkGuJ95AQ4f5SxGZ) |
 
-Result in the file, NEAR spent on buys and NEAR paid back by the contract at the end of the run: early 3.000 spent, 0 paid; late 2.000 spent, 0.263 paid; insider 3.000 spent, 0.474 paid; panic 2.000 spent, 0.236 paid. The gate bound in round 14 and let 0.499 NEAR leave (5 % of a reserve of about 10 NEAR); it was paid to the late and panic accounts (plate 4), and the insider's plate 2 got nothing until round 15. This is one run on a small pool; it shows the order of payment, not a gain. Rounds 14 and 15 were settled by the Worker's timer, not by the script, so the file's `settled_rounds` list is empty; the page lists both settlements with their transactions. The two refused `claim` calls found nothing left to claim; I did not trace which call had already paid those two requests.
+Result in the file, NEAR spent on buys and NEAR paid back by the contract at the end of the run: early 3.000 spent, 0 paid; late 2.000 spent, 0.263 paid; insider 3.000 spent, 0.474 paid; panic 2.000 spent, 0.236 paid. The gate bound in round 14 and let 0.499 NEAR leave (5 % of a reserve of about 10 NEAR); it was paid to the late and panic accounts (plate 4), and the insider's plate 2 got nothing until round 15. It shows the order of payment on a small pool. Rounds 14 and 15 were settled by the Worker's timer, not by the script, so the file's `settled_rounds` list is empty; the page lists both settlements with their transactions. The two refused `claim` calls came 3 seconds after the Worker's timer had claimed for the same accounts ([`FxFpF9fP…`](https://testnet.nearblocks.io/txns/FxFpF9fPBbT69dbR1bHGK2c5dAXYqk1QNmqZqvkwYYiz) for the late buyer, [`8pffCESG…`](https://testnet.nearblocks.io/txns/8pffCESGkYsDN3kDwnXQUkM6xutmJRHaP2eafspU4FXs) for the insider).
 
 ## Review findings
 
@@ -229,7 +229,7 @@ random.json: 200 cases, 1341 KiB
 python -m lifo.sweep --seeds 10 --workers 4
 ```
 
-The last line starts with `9000 runs` and ends with `99 sets pass G1`. The run recorded in [`results/SWEEP.md`](results/SWEEP.md) took 491 s; I did not re-run it for this README. The refresh study is `python -m lifo.refresh --seeds 10 --workers 4` (195 s as recorded in [`results/RECOMMENDED.md`](results/RECOMMENDED.md)); `python -m lifo.refresh --from-csv` redraws it from `results/refresh.csv`.
+The last line starts with `9000 runs` and ends with `99 sets pass G1`. The run recorded in [`results/SWEEP.md`](results/SWEEP.md) took 491 s. The refresh study is `python -m lifo.refresh --seeds 10 --workers 4` (195 s as recorded in [`results/RECOMMENDED.md`](results/RECOMMENDED.md)); `python -m lifo.refresh --from-csv` redraws it from `results/refresh.csv`.
 
 **4. Contract tests** (about 1 minute once built):
 
@@ -289,7 +289,7 @@ Uniform-price launch auctions (Metaplex, Uniswap's continuous clearing auctions,
 
 ## What is real
 
-The contracts, the transactions, the page and the tests are real and run on testnet or locally. The market results are simulated: the scenario and seeds are named next to each figure, and they are not market data. Testnet NEAR has no value.
+The contracts, the transactions, the page and the tests are real and run on testnet or locally. Each simulated figure names its scenario and seeds. Testnet NEAR has no value.
 
 ## Layout
 

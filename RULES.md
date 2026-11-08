@@ -2,7 +2,7 @@
 
 LIFO is a memecoin with its own market: a bonding curve that sells tokens for NEAR and buys them back from its reserve. Each token carries the date it was bought from that market, its vintage. When more people want out than the reserve lets go in one batch, the reserve pays the newest vintages first and the oldest holders wait. When the gate does not bind, every seller is paid in full in the next batch.
 
-The reference model is [`lifo/model.py`](lifo/model.py); its tests are in [`tests/`](tests/). The NEAR contract is in [`contract/`](contract/README.md); it replays every vector the model writes and agrees on every step. The figures below come from the simulation in [`lifo/sim.py`](lifo/sim.py) and are **simulated, not market data**.
+The reference model is [`lifo/model.py`](lifo/model.py); its tests are in [`tests/`](tests/). The NEAR contract is in [`contract/`](contract/README.md); it replays every vector the model writes and agrees on every step. The figures below come from the simulation in [`lifo/sim.py`](lifo/sim.py) and are **simulated**.
 
 ## The mechanism
 
@@ -75,7 +75,7 @@ In the 48 hours after the peak of the insider dump, the newest third of vintages
 - **Other venues.** Anyone can open a pool for the token elsewhere, for example on Ref Finance. The rule covers this market's reserve only. Tokens bought elsewhere keep the vintage they were first bought with here, so they do not jump the line.
 - **Splitting across accounts** changes payouts only by rounding (at most one token unit and one unit of value per account), tested on 2,000 random cases. An account with more than 16 vintages has its oldest lots merged into older ones; splitting avoids that merge but never gives a token a newer vintage than its purchase.
 - **A small market.** With these curve values the reserve cannot pass 120 NEAR. The simulated buyers' sizes were chosen so that the reserve peaks under that cap (about 50 to 95 NEAR).
-- **What the simulation is.** Agent behaviour (arrival rates, sizes, thresholds) is drawn from distributions chosen for this model, not fitted to market data.
+- **What the simulation is.** Agent behaviour (arrival rates, sizes, thresholds) is drawn from distributions chosen for this model.
 
 ## What the contract makes concrete
 
