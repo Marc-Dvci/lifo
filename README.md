@@ -200,7 +200,7 @@ uv pip install -r requirements-dev.txt
 **1. Python tests** (about 2 minutes):
 
 ```
-python -m pytest -q --cov --ignore=tests/test_core.py --ignore=tests/test_server.py
+python -m pytest -q --cov
 ```
 
 Ends with (on 8 November 2026):

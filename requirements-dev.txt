@@ -1,6 +1,5 @@
--r requirements.txt
+# What the tests, the simulation and the figures need (Python 3.12).
 codespell==2.4.3    # spelling, settings in pyproject.toml
-httpx==0.28.1       # the test client
 matplotlib==3.11.2  # figures of the simulation in results/
 hypothesis==6.168.5 # property-based tests
 mypy==2.4.1         # types, settings in pyproject.toml

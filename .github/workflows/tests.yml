@@ -24,10 +24,8 @@ jobs:
       - run: mypy
       - name: Tests in random order, with line and branch coverage of the model (floor in pyproject.toml)
         shell: bash
-        # tests/test_core.py and tests/test_server.py test the template's app/, not LIFO.
         run: |
-          python -m pytest -q --cov --randomly-seed="$GITHUB_RUN_ID" \
-            --ignore=tests/test_core.py --ignore=tests/test_server.py | tee pytest.log
+          python -m pytest -q --cov --randomly-seed="$GITHUB_RUN_ID" | tee pytest.log
       - name: Summary on the run page
         if: always()
         shell: bash

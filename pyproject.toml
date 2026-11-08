@@ -1,4 +1,4 @@
-# Tool settings only: the project runs from source, it is not installed as a package (see requirements.txt).
+# Tool settings only: the project runs from source, it is not installed as a package (see requirements-dev.txt).
 
 [tool.ruff]
 line-length = 120
@@ -11,10 +11,6 @@ select = ["E4", "E7", "E9", "F", "B", "I"]
 [tool.mypy]
 files = ["lifo", "tests"]
 strict = true
-
-[[tool.mypy.overrides]]
-module = ["app.*", "tests.test_server", "tests.test_core"]
-ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
