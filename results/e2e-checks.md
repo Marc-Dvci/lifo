@@ -1,6 +1,6 @@
 # End-to-end checks on a local sandbox
 
-Command: `cd e2e && node checks.mjs (local NEAR sandbox 2.14.0, not testnet)`. Commit `a29370680cbb70609e8dc39f0a06d41a018f1847`. Wasm 213191 bytes, SHA-256 `de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a`.
+Command: `cd e2e && node checks.mjs (local NEAR sandbox 2.14.0, not testnet)`. Commit `9eb7ccd79b84e02c8fc566a922ac43dcba13f386`. Wasm 213191 bytes, SHA-256 `de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a`.
 21 passed, 0 failed.
 
 | check | result | what the chain returned |

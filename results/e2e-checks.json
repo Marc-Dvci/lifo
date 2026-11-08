@@ -1,9 +1,9 @@
 {
   "command": "cd e2e && node checks.mjs (local NEAR sandbox 2.14.0, not testnet)",
-  "commit": "a29370680cbb70609e8dc39f0a06d41a018f1847",
+  "commit": "9eb7ccd79b84e02c8fc566a922ac43dcba13f386",
   "wasm_sha256": "de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a",
   "wasm_bytes": 213191,
-  "contract": "cmw70y80x.test.near",
+  "contract": "cmw75h2sw.test.near",
   "passed": 21,
   "failed": 0,
   "results": [
