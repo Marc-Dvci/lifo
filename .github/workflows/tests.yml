@@ -1,5 +1,5 @@
-# On every push: lint, format, types, tests with coverage of the decision core, spelling and local links (Python);
-# the web build when there is one; and the Docker image, started and asked for its health and its page.
+# On every push: the Python model (lint, format, types, tests with coverage of the model), the Rust contract (tests
+# and the wasm build), the Worker's and the page's Node tests, spelling and links.
 # Read-only: nothing here writes to the repository.
 name: tests
 on:
@@ -22,62 +22,95 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy
-      - name: Tests in random order, with line and branch coverage of the decision core
+      - name: Tests in random order, with line and branch coverage of the model (floor in pyproject.toml)
         shell: bash
-        run: python -m pytest -q --cov --randomly-seed="$GITHUB_RUN_ID" | tee pytest.log
+        # tests/test_core.py and tests/test_server.py test the template's app/, not LIFO.
+        run: |
+          python -m pytest -q --cov --randomly-seed="$GITHUB_RUN_ID" \
+            --ignore=tests/test_core.py --ignore=tests/test_server.py | tee pytest.log
       - name: Summary on the run page
         if: always()
         shell: bash
         run: |
-          count() { python -m pytest --collect-only -q -p no:randomly -m "$1" 2>/dev/null | tail -n 1 | grep -Eo '^[0-9]+' || echo 0; }
           {
-            echo "### Tests"
+            echo "### Python tests"
             echo
             grep -E "passed|failed" pytest.log | tail -n 1
             echo "Random order: replay it with \`python -m pytest --randomly-seed=$GITHUB_RUN_ID\`."
             echo
-            echo "| Kind | Tests |"
-            echo "|---|---|"
-            echo "| Unit | $(count 'not integration and not e2e and not live') |"
-            echo "| Integration | $(count integration) |"
-            echo "| End-to-end | $(count e2e) |"
-            echo
-            echo "### Coverage of the decision core (lines and branches)"
+            echo "### Coverage of lifo/model.py (lines and branches)"
             echo
             python -m coverage report --format=markdown
           } >> "$GITHUB_STEP_SUMMARY"
       - run: codespell
       - run: python scripts/check_links.py
-      - run: python scripts/check_placeholders.py
-  web:
+  contract:
     runs-on: ubuntu-latest
+    env:
+      CARGO_BUILD_JOBS: 4
     steps:
       - uses: actions/checkout@v4
-      - id: has
-        run: echo "build=$([ -f web/package.json ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
-      - if: steps.has.outputs.build == 'yes'
-        uses: actions/setup-node@v4
+      - uses: dtolnay/rust-toolchain@master
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - if: steps.has.outputs.build == 'yes'
-        working-directory: web
+          toolchain: 1.97.1
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Contract tests, including the replay of the model's vectors
+        run: cargo test -p lifo -j 4 -q
+      - name: Install cargo-near 0.22.0
         run: |
-          npm ci
-          npx tsc -b
-          npx eslint src
-          npx vite build
-  docker:
+          curl -fsSL -o cargo-near.tar.gz \
+            https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-x86_64-unknown-linux-gnu.tar.gz
+          mkdir cargo-near-bin && tar -xzf cargo-near.tar.gz -C cargo-near-bin
+          dir=$(dirname "$(find cargo-near-bin -name cargo-near -type f | head -n 1)")
+          chmod +x "$dir"/cargo-near
+          echo "$PWD/$dir" >> "$GITHUB_PATH"
+      - name: Build the wasm and compare it with contract/README.md
+        working-directory: contract
+        shell: bash
+        # The hash is reported, not required. The README says the build is not reproducible: panic messages of the
+        # dependencies carry the path of the machine that built them, so another machine gives another hash. The
+        # size must stay within 5 % of the documented one.
+        run: |
+          cargo near build non-reproducible-wasm --no-abi
+          wasm=../target/near/lifo/lifo.wasm
+          row=$(grep -F 'target/near/lifo/lifo.wasm' README.md | head -n 1)
+          doc_size=$(echo "$row" | grep -Eo '[0-9,]+ bytes' | tr -d ', bytes')
+          doc_hash=$(echo "$row" | grep -Eo '[0-9a-f]{64}')
+          size=$(stat -c %s "$wasm")
+          hash=$(sha256sum "$wasm" | cut -d' ' -f1)
+          if [ "$hash" = "$doc_hash" ]; then same="the same as"; else same="different from"; fi
+          {
+            echo "### Wasm build"
+            echo
+            echo "| | Size | SHA-256 |"
+            echo "|---|---|---|"
+            echo "| contract/README.md | $doc_size | \`$doc_hash\` |"
+            echo "| this run | $size | \`$hash\` |"
+            echo
+            echo "The hash of this run is $same the documented one."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "documented: $doc_size bytes $doc_hash"
+          echo "this run:   $size bytes $hash ($same the documented hash)"
+          awk -v a="$size" -v b="$doc_size" 'BEGIN { d = (a > b ? a - b : b - a) / b; exit (d <= 0.05 ? 0 : 1) }'
+  node:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker build --target demo -t project:demo .
-      - run: docker run -d --name demo -p 127.0.0.1:8787:8787 project:demo
-      - name: The API and the web app answer
-        run: |
-          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8787/api/health > /dev/null && break; sleep 2; done
-          curl -fs http://127.0.0.1:8787/api/health | grep -q '"demo":true'
-          curl -fs http://127.0.0.1:8787/ | grep -q '<title>'
-      - if: failure()
-        run: docker logs demo
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: The Worker's tests
+        run: node --test "worker/test/*.test.js"
+      - name: The page's tests
+        run: node --test "web/test/*.test.js"
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: External links in the Markdown files
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # The repository's own GitHub links answer 404 until the repository is public and tagged.
+          args: --no-progress --max-retries 3 --exclude 'github\.com/Marc-Dvci/' README.md RULES.md contract/README.md
+          fail: true

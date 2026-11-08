@@ -43,4 +43,5 @@ fail_under = 95
 show_missing = true
 
 [tool.codespell]
-skip = "*.png,*.jpg,*.gif,*.svg,*.lock,package-lock.json,.git,.venv,node_modules"
+skip = "*.png,*.jpg,*.gif,*.svg,*.lock,package-lock.json,.git,.venv,node_modules,target,.guest,.hypothesis,.wrangler,.mypy_cache,.pytest_cache,.ruff_cache,*.csv"
+ignore-words-list = "nd" # "2nd" in a comment

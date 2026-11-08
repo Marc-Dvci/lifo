@@ -15,16 +15,16 @@ cargo test -p lifo -j 4 -q
 Output on this machine (Windows, rustc 1.97.1, near-sdk 5.30.1):
 
 ```
-running 30 tests
-..............................
-test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.55s
+running 34 tests
+..................................
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.57s
 running 2 tests
 ..
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 51.40s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 51.30s
 ```
 
-- [`tests/requirements.rs`](tests/requirements.rs): 30 tests named by requirement, from `a1_initialisation_checks_every_parameter` to `d2_events_rebuild_every_account_lots`, plus storage and NEP-141 refusals. Every refusal is checked for its exact message and for an unchanged state.
-- [`tests/vectors.rs`](tests/vectors.rs): replays [`vectors/edge.json`](../vectors/edge.json) (8 cases, 121 steps) and [`vectors/random.json`](../vectors/random.json) (200 cases, 3,578 steps). After every step it compares the result or the exact error, the reserve, the supply, the unclaimed NEAR, every account's lots and payouts, and the open requests by vintage. At the end of each case it compares every settlement and every account's pending requests. Changing the sell fee from rounded up to rounded down makes both tests fail at the first affected step.
+- [`tests/requirements.rs`](tests/requirements.rs): 34 tests named by requirement, from `a1_initialisation_checks_every_parameter` to `d2_events_rebuild_every_account_lots`, plus storage and NEP-141 refusals. Every refusal is checked for its exact message and for an unchanged state.
+- [`tests/vectors.rs`](tests/vectors.rs): replays [`vectors/edge.json`](../vectors/edge.json) (10 cases, 134 steps) and [`vectors/random.json`](../vectors/random.json) (200 cases, 3,551 steps). After every step it compares the result or the exact error, the reserve, the supply, the unclaimed NEAR, every account's lots and payouts, and the open requests by vintage. At the end of each case it compares every settlement and every account's pending requests. Changing the sell fee from rounded up to rounded down makes both tests fail at the first affected step.
 
 The harness ([`tests/common/mod.rs`](tests/common/mod.rs)) runs each call like a transaction on near-sdk's mocked chain: a panic restores the storage snapshot taken before the call, as the chain reverts a failed receipt. On Windows the unit-testing feature of near-sdk builds `aws-lc-sys`, which needs NASM or its prebuilt objects; [`.cargo/config.toml`](../.cargo/config.toml) selects the prebuilt objects.
 

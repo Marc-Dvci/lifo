@@ -1,25 +1,27 @@
-# A smoke test of the live demo during judging, with its own badge; it also keeps the demo warm.
-# It reads the live site and writes nothing to the repository.
-# TEMPLATE: set LIVE_URL and RESULTS_DATE, then uncomment the schedule once the demo is live. After RESULTS_DATE the
-# job ends at once, so stopping the demo later never turns the badge red.
+# A check of the testnet contracts and the public page, every 6 hours until 2026-11-25. It reads public endpoints and
+# writes nothing to the repository. After the date it ends at once, so stopping the page later never turns the badge red.
 name: live
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: "17 */3 * * *"
+  schedule:
+    - cron: "23 */6 * * *"
 permissions:
   contents: read
 env:
-  LIVE_URL: ""
-  RESULTS_DATE: "" # YYYY-MM-DD
+  RESULTS_DATE: "2026-11-25"
 jobs:
   smoke:
-    if: github.repository != 'Marc-Dvci/project-template'
     runs-on: ubuntu-latest
     steps:
-      - name: The live demo answers
+      - uses: actions/checkout@v4
+      - name: Past the date
+        id: date
         run: |
-          if [ -z "$LIVE_URL" ]; then echo "No LIVE_URL set."; exit 0; fi
-          if [ -n "$RESULTS_DATE" ] && [ "$(date -u +%F)" \> "$RESULTS_DATE" ]; then echo "Past the results date."; exit 0; fi
-          curl -fsS --retry 3 --retry-delay 20 --max-time 90 "$LIVE_URL/api/health"
-          curl -fsS --max-time 90 "$LIVE_URL/" | grep -q '<title>'
+          if [ "$(date -u +%F)" \> "$RESULTS_DATE" ]; then echo "Past $RESULTS_DATE: nothing to check."; echo "done=yes" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.date.outputs.done != 'yes'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Both contracts have the reviewed code and no access key; the page answers
+        if: steps.date.outputs.done != 'yes'
+        run: python scripts/live_check.py
