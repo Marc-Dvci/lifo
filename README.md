@@ -236,10 +236,8 @@ The last line starts with `9000 runs` and ends with `99 sets pass G1`. The run r
 ```
 cargo test -p lifo -j 4 -q
 ```
-```
-test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.57s
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 51.30s
-```
+
+Among its result lines: `34 passed` (the requirement tests) and `2 passed` (the vector replay).
 
 **5. The wasm and its hash.** With [cargo-near 0.22.0](https://github.com/near/cargo-near/releases/tag/cargo-near-v0.22.0):
 
@@ -268,7 +266,7 @@ python scripts/live_check.py
 ```
 launch.lifo.testnet: code hash Fy1WD6gTKfzB2vNSRFjXRSH3CXNqPxQU3o7caecp27pd (matches the reviewed wasm), 0 access keys
 demo.lifo.testnet: code hash Fy1WD6gTKfzB2vNSRFjXRSH3CXNqPxQU3o7caecp27pd (matches the reviewed wasm), 0 access keys
-https://lifo-amt.pages.dev/api/state?d=demo: HTTP 200, 3415 bytes of JSON
+https://lifo-amt.pages.dev/api/state?d=demo: HTTP 200, <size> bytes of JSON
 ```
 
 **8. Sandbox end-to-end** (Linux or WSL). It needs the NEAR sandbox binary (nearcore 2.14.0) in `$SANDBOX_DIR/Linux-x86_64/near-sandbox`; on distributions older than glibc 2.39, `GLIBC_DIR` points at an extracted glibc tree (see the header of [`e2e/sandbox.sh`](e2e/sandbox.sh)). Run it after step 5, since the script deploys the built wasm:

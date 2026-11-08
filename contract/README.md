@@ -12,16 +12,7 @@ From the repository root:
 cargo test -p lifo -j 4 -q
 ```
 
-Output on this machine (Windows, rustc 1.97.1, near-sdk 5.30.1):
-
-```
-running 34 tests
-..................................
-test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.57s
-running 2 tests
-..
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 51.30s
-```
+On this machine (Windows, rustc 1.97.1, near-sdk 5.30.1) the run reports `34 passed` for the requirement tests and `2 passed` for the vector replay, in about 8 s and 53 s.
 
 - [`tests/requirements.rs`](tests/requirements.rs): 34 tests named by requirement, from `a1_initialisation_checks_every_parameter` to `d2_events_rebuild_every_account_lots`, plus storage and NEP-141 refusals. Every refusal is checked for its exact message and for an unchanged state.
 - [`tests/vectors.rs`](tests/vectors.rs): replays [`vectors/edge.json`](../vectors/edge.json) (10 cases, 134 steps) and [`vectors/random.json`](../vectors/random.json) (200 cases, 3,551 steps). After every step it compares the result or the exact error, the reserve, the supply, the unclaimed NEAR, every account's lots and payouts, and the open requests by vintage. At the end of each case it compares every settlement and every account's pending requests. Changing the sell fee from rounded up to rounded down makes both tests fail at the first affected step.
@@ -40,7 +31,7 @@ cargo near build non-reproducible-wasm --no-abi
 |---|---|---|
 | `target/near/lifo/lifo.wasm` | 213,191 bytes | `de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a` |
 
-Built at commit `f37070c` with rustc 1.97.1 and wasm-opt from cargo-near. The build is not reproducible (no Docker image), so another machine may produce a different hash.
+Built from the source at commit `a293706`, the last change to `contract/src` (the oldest-first refund and 64-bit vintages), with rustc 1.97.1 and wasm-opt from cargo-near. A fresh compile of the crate at a later commit gave the same 213,191 bytes and SHA-256. The build uses no Docker image, so another machine can produce a different hash. The testnet contracts' code hash is the base58 form of this SHA-256.
 
 ## Interface
 
