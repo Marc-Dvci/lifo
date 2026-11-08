@@ -111,6 +111,6 @@ jobs:
       - name: External links in the Markdown files
         uses: lycheeverse/lychee-action@v2
         with:
-          # The repository's own GitHub links answer 404 until the repository is public and tagged.
-          args: --no-progress --max-retries 3 --exclude 'github\.com/Marc-Dvci/' README.md RULES.md contract/README.md
+          # The repository's own GitHub links answer 404 until the repository is public and tagged; the explorer refuses bots.
+          args: --no-progress --max-retries 3 --accept '100..=399,403,429' --exclude 'github\.com/Marc-Dvci/' --exclude 'nearblocks\.io' README.md RULES.md contract/README.md
           fail: true
