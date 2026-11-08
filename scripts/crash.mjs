@@ -75,7 +75,8 @@ const held = async (role) => {
 const sellAll = async (role, note) => {
   const amount = await held(role);
   if (amount === 0n) { console.log(`${stamp()}  ${role.padEnd(8)} holds nothing, no sell`); return; }
-  await step(role, 'request_sell', { amount: String(amount) }, SELL_STORAGE, note);
+  const res = await step(role, 'request_sell', { amount: String(amount) }, SELL_STORAGE, note);
+  return Number(res.events.find((e) => e.event === 'sell_request')?.data[0].epoch);
 };
 
 /** The Worker's cron settles a finished round and keeps it in the page's log. Give it 90 s, then settle here. */
@@ -126,9 +127,9 @@ for (const r of roles) {
   if (a && a.pending.length) await step(r, 'claim', {}, 0n, 'pays and returns the unfilled');
 }
 // 6. The insider asks again for what is left.
-await sellAll('insider', 'insider asks again');
-await waitFor((o) => Number(o.current_epoch) > dumpEpoch + 1);
-await settleOrWait(dumpEpoch + 1);
+const second = await sellAll('insider', 'insider asks again');
+await waitFor((o) => Number(o.current_epoch) > second);
+await settleOrWait(second);
 for (const r of roles) {
   const a = await view(rpc, cid, 'get_account', { account_id: acct[r].accountId });
   if (a && a.pending.length) await step(r, 'claim', {}, 0n, 'pays and returns the unfilled');

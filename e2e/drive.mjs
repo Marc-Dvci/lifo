@@ -17,6 +17,7 @@ const arg = (name, fallback) => {
 };
 const url = arg('url', 'http://127.0.0.1:8797');
 const d = arg('d', 'demo');
+const only = arg('only', '');
 const limit = Number(arg('max-minutes', '20')) * 60_000;
 const dir = new URL('../.guest/screens/', import.meta.url);
 mkdirSync(fileURLToPath(dir), { recursive: true });
@@ -55,12 +56,14 @@ async function shoot(name) {
 }
 
 let lastTick = 0;
+const first = await (await fetch(`${url}/api/state?d=${d}`)).json();
+const baseline = Math.max(0, ...first.rounds.map((r) => Number(r.epoch)));
 const done = { before: false, building: false, during: false, after: false };
 const t0 = Date.now();
 await sleep(2500);
-await shoot('before');
+await shoot(only || 'before');
 done.before = true;
-while (Date.now() - t0 < limit) {
+while (!only && Date.now() - t0 < limit) {
   if (Date.now() - lastTick > 20_000) {
     lastTick = Date.now();
     await fetch(`${url}/cdn-cgi/handler/scheduled`).catch(() => {});
@@ -70,13 +73,14 @@ while (Date.now() - t0 < limit) {
     const held = new Set(Object.values(s.accounts).flatMap((a) => (a.view?.lots ?? []).map(([v]) => v)));
     if (!done.building && held.size >= 3) { await sleep(6000); await shoot('building'); done.building = true; }
     if (!done.during && s.open.requests > 0) { await sleep(6000); await shoot('during'); done.during = true; }
-    if (done.during && !done.after && s.rounds.some((r) => r.bound)) { await sleep(8000); await shoot('after'); done.after = true; lastTick = 0; }
+    if (done.during && !done.after && s.rounds.some((r) => r.bound && Number(r.epoch) > Number(s.open.requests ? s.open.epoch : baseline))) { await sleep(8000); await shoot('after'); done.after = true; lastTick = 0; }
     if (done.after && s.rounds.length >= 2) { await sleep(8000); await shoot('after-second-round'); break; }
   }
   await sleep(3000);
 }
 // Act through the page once, as a visitor would: choose a role and press buy.
 const p = pages[0].page;
+if (only) { await browser.close(); console.log(JSON.stringify({ shot: only, facts: facts.map((f) => [f.screen, f.plates, f.rounds[0], f.overflowX]) })); process.exit(0); }
 await p.click('#roles button[data-role="late"]');
 const before = await p.locator('#act-msg').textContent();
 await p.click('#buy');
