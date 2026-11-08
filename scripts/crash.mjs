@@ -78,6 +78,20 @@ const sellAll = async (role, note) => {
   await step(role, 'request_sell', { amount: String(amount) }, SELL_STORAGE, note);
 };
 
+/** The Worker's cron settles a finished round and keeps it in the page's log. Give it 90 s, then settle here. */
+async function settleOrWait(epoch) {
+  console.log(`${stamp()}  round ${epoch} is over: waiting up to 90 s for the Worker's cron to settle it`);
+  for (let i = 0; i < 90; i++) {
+    const o = await open();
+    if (o.epoch === null || Number(o.epoch) !== epoch) {
+      console.log(`${stamp()}  round ${epoch} was settled by someone else (the cron)`);
+      return;
+    }
+    await sleep(1000);
+  }
+  await step('early', 'settle', {}, 0n, 'cron did not, so settle here');
+}
+
 console.log(`crash on ${cid} (${network}), rounds of ${epochS} s, plates of ${vintageS} s`);
 const v0 = Number((await open()).current_vintage) + 1;
 console.log(`${stamp()}  waiting for plate ${v0} to open`);
@@ -106,7 +120,7 @@ const asked = await open();
 console.log(`${stamp()}  open round ${asked.epoch}: ${asked.requests} requests, by plate ${JSON.stringify(asked.requested.map(([v, a]) => [v, (BigInt(a) / 10n ** 18n).toString()]))}`);
 // 5. Settle and claim.
 await waitFor((o) => Number(o.current_epoch) > dumpEpoch);
-await step('early', 'settle', {}, 0n, 'any account may settle');
+await settleOrWait(dumpEpoch);
 for (const r of roles) {
   const a = await view(rpc, cid, 'get_account', { account_id: acct[r].accountId });
   if (a && a.pending.length) await step(r, 'claim', {}, 0n, 'pays and returns the unfilled');
@@ -114,7 +128,7 @@ for (const r of roles) {
 // 6. The insider asks again for what is left.
 await sellAll('insider', 'insider asks again');
 await waitFor((o) => Number(o.current_epoch) > dumpEpoch + 1);
-await step('early', 'settle', {}, 0n, 'settles the second round');
+await settleOrWait(dumpEpoch + 1);
 for (const r of roles) {
   const a = await view(rpc, cid, 'get_account', { account_id: acct[r].accountId });
   if (a && a.pending.length) await step(r, 'claim', {}, 0n, 'pays and returns the unfilled');
@@ -124,7 +138,7 @@ const pool = await view(rpc, cid, 'get_pool');
 const final = {};
 for (const r of roles) {
   const a = await view(rpc, cid, 'get_account', { account_id: acct[r].accountId });
-  final[r] = { lots: a?.lots ?? [], paid_out: a?.paid_out ?? '0', near_spent: String(spentBy[r]), near_paid_by_claims: String(paidBy[r]) };
+  final[r] = { lots: a?.lots ?? [], paid_out: a?.paid_out ?? '0', near_spent: String(spentBy[r]), near_paid_by_my_claims: String(paidBy[r]) };
 }
 const git = (...a) => execFileSync('git', a, { cwd: new URL('..', import.meta.url) }).toString().trim();
 mkdirSync(new URL('../results/', import.meta.url), { recursive: true });
@@ -140,6 +154,6 @@ writeFileSync(outFile, JSON.stringify({
 const near = (y) => (Number(BigInt(y) / 10n ** 18n) / 1e6).toFixed(3);
 console.log('\nsettled rounds (from the settle events):');
 for (const r of rounds) console.log(`  round ${r.epoch}: paid ${near(r.paid)} NEAR, cap ${near(r.cap)} NEAR, gate ${r.bound ? 'bound' : 'did not bind'}, requested by plate ${JSON.stringify(r.requested.map(([v, a]) => [v, (BigInt(a) / 10n ** 18n).toString()]))}, filled ${JSON.stringify(r.filled.map(([v, a]) => [v, (BigInt(a) / 10n ** 18n).toString()]))}`);
-console.log('\nper account (NEAR spent on buys, NEAR paid back by claims, tokens still held):');
-for (const r of roles) console.log(`  ${r.padEnd(8)} ${near(spentBy[r]).padStart(8)} ${near(paidBy[r]).padStart(8)}  ${(final[r].lots.reduce((n, [, x]) => n + BigInt(x), 0n) / 10n ** 18n).toString()} LIFO`);
+console.log('\nper account (NEAR spent on buys in this run, NEAR paid back in total by the contract, tokens still held):');
+for (const r of roles) console.log(`  ${r.padEnd(8)} ${near(spentBy[r]).padStart(8)} ${near(final[r].paid_out).padStart(8)}  ${(final[r].lots.reduce((n, [, x]) => n + BigInt(x), 0n) / 10n ** 18n).toString()} LIFO`);
 console.log(`\nwrote results/crash-${network}.json`);

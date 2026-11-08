@@ -138,6 +138,20 @@ test('the tick settles a finished round once, records it with its transaction, a
   assert.equal(ctx.data.get('rounds:demo').length, 1, 'the same round is not recorded twice');
 });
 
+test('a round settled by someone else is read from the contract while a demo role still has a request in it', async () => {
+  const views = { 'demo.t.near': {
+    get_open: { epoch: null, current_epoch: '43', requested: [], requests: 0, current_vintage: 4 },
+    get_account: ({ account_id }) => (account_id === 'late.t.near' ? { lots: [], pending: [{ id: '1', epoch: '41', portions: [] }] } : null),
+    get_settlement: { epoch: '41', cap: '5', requested: [[4, '100']], filled: [[4, '60']], total_requested: '100', total_filled: '60', paid: '9', price: '1', bound: true, open_requests: 1, paid_left: '9' },
+  }, 'launch.t.near': { get_open: { epoch: null, current_epoch: '5', requested: [], requests: 0, current_vintage: 0 }, get_account: null } };
+  const ctx = await setup({ views });
+  await tick(ctx);
+  const rounds = ctx.data.get('rounds:demo');
+  assert.deepEqual([rounds.length, rounds[0].epoch, rounds[0].paid, rounds[0].bound, rounds[0].hash], [1, '41', '9', true, null]);
+  await tick(ctx);
+  assert.equal(ctx.data.get('rounds:demo').length, 1);
+});
+
 test('the tick does nothing when no round is waiting and nobody has a settled request', async () => {
   const quiet = { get_open: { epoch: null, current_epoch: '9', requested: [], requests: 0, current_vintage: 0 }, get_account: null };
   const ctx = await setup({ views: { 'demo.t.near': quiet, 'launch.t.near': quiet } });

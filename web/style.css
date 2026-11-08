@@ -66,7 +66,7 @@ h1 { font-size: clamp(2.35rem, 8.6vw, 5rem); line-height: .98; }
 .who { display: inline-flex; gap: 3px; }
 .who i { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: #fff; color: var(--ink); font-style: normal; font-size: .7rem; font-weight: 900; }
 .plate.mine .disc { outline: 3px solid var(--ink); outline-offset: 2px; }
-.plate.mine .meta b::after { content: " Â· yours"; color: var(--pink); }
+.plate.mine .meta b::after { content: " \00B7  yours"; color: var(--pink); }
 .note { margin: .8rem 0 0; text-align: center; color: var(--soft); font-size: .9rem; }
 .empty { color: var(--soft); text-align: center; align-self: center; margin: 2.4rem 0; }
 @keyframes drop { from { opacity: 0; transform: translateY(-34px); } }

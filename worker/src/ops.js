@@ -156,6 +156,15 @@ export async function tick(ctx) {
         await record(ctx.store, d, { at: ctx.now(), role: 'crank', action: 'settle', ok: !sent.error, hash: sent.hash, error: sent.error || undefined }, sent.events, sent.hash, ctx.now());
       }
       const accounts = await Promise.all(ROLE_NAMES.map((r) => ctx.rpc.view(cid, 'get_account', { account_id: cfg.roles[r] })));
+      // A round settled by someone else (any account may settle) has no transaction of ours: read it from the
+      // contract while a demo role still has an unclaimed request in it.
+      const known = (await ctx.store.get(`rounds:${d}`)) || [];
+      const missing = [...new Set(accounts.flatMap((a) => (a ? a.pending.map((p) => String(p.epoch)).filter((e) => BigInt(e) < current) : [])))]
+        .filter((e) => !known.some((r) => r.epoch === e));
+      for (const epoch of missing) {
+        const s = await ctx.rpc.view(cid, 'get_settlement', { epoch });
+        if (s) await record(ctx.store, d, null, [{ event: 'settle', data: [{ ...s, requests: s.open_requests }] }], null, ctx.now());
+      }
       for (const [i, role] of ROLE_NAMES.entries()) {
         const a = accounts[i];
         if (!a || !a.pending.some((p) => BigInt(p.epoch) < current)) continue;
