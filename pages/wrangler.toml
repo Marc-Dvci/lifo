@@ -1,0 +1,9 @@
+# The public address of the LIFO page: Cloudflare Pages serves web/ and hands /api/* to the lifo-demo Worker
+# through a service binding, so the Worker's own address never appears on the page.
+name = "lifo"
+pages_build_output_dir = "../web"
+compatibility_date = "2025-09-01"
+
+[[services]]
+binding = "API"
+service = "lifo-demo"
