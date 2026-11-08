@@ -170,9 +170,11 @@ test('the state call for the page makes seven requests to the chain and returns 
   let views = 0;
   const ctx = await setup();
   ctx.rpc.view = async () => { views++; return { x: 1 }; };
+  ctx.rpc.view = async (_c, method) => { views++; return method === 'get_open' ? { current_epoch: '9', epoch: null } : method === 'get_account' ? { lots: [], pending: [{ id: '1', epoch: '4', portions: [] }] } : { epoch: '4' }; };
   ctx.params = async () => ({ gate_bps: 500 });
   ctx.getLog = async () => ({ rounds: [{ epoch: '1' }], feed: [] });
   const s = await readState(ctx, 'demo');
-  assert.equal(views, 6, 'pool, open and four accounts; the parameters are cached');
+  assert.equal(views, 7, 'pool, open and four accounts, one settlement read; the parameters are cached');
+  assert.deepEqual(Object.keys(s.settlements), ['4']);
   assert.deepEqual([s.contract, s.plan.insider, s.rounds.length], ['demo.t.near', { buy_near: '3', sell_pct: 100 }, 1]);
 });

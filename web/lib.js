@@ -137,7 +137,7 @@ export const vintageMs = (params) => Number(big(params.vintage_length) / 1_000_0
  * The plates, newest first. A plate is a vintage. Its size is what the demo accounts hold of it plus what is
  * queued in the open round. `mine[role]` is the share of each demo account.
  */
-export function buildStack({ params, open, accounts, now }) {
+export function buildStack({ params, open, accounts, now, settlements = {} }) {
   const byV = new Map();
   const slot = (v) => {
     if (!byV.has(v)) byV.set(v, { vintage: v, held: 0n, queued: 0n, mine: {} });
@@ -153,8 +153,20 @@ export function buildStack({ params, open, accounts, now }) {
       mineOf(p, role).held += big(a);
     }
     for (const req of view.pending) {
-      if (open?.epoch == null || String(req.epoch) !== String(open.epoch)) continue;
-      for (const [v, a] of req.portions) mineOf(slot(Number(v)), role).queued += big(a);
+      const settled = settlements[String(req.epoch)];
+      if (settled) {
+        // A finished round, not yet claimed: what was not filled comes back to the owner on its vintage.
+        for (const [v, a] of req.portions) {
+          const asked = big(settled.requested.find(([x]) => Number(x) === Number(v))?.[1]);
+          const filled = big(settled.filled.find(([x]) => Number(x) === Number(v))?.[1]);
+          const back = big(a) - (asked === 0n ? 0n : (big(a) * filled) / asked);
+          const p = slot(Number(v));
+          p.held += back;
+          mineOf(p, role).held += back;
+        }
+      } else if (open?.epoch != null && String(req.epoch) === String(open.epoch)) {
+        for (const [v, a] of req.portions) mineOf(slot(Number(v)), role).queued += big(a);
+      }
     }
   }
   for (const [v, a] of open?.requested ?? []) slot(Number(v)).queued = big(a);

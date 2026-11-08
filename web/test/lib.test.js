@@ -150,3 +150,16 @@ test('the round clock counts down to the end of the current round', () => {
   assert.deepEqual([c.epoch, c.msLeft, c.frac], [5, 45_000, 0.25]);
   assert.equal(roundClock(params, launch - 10).epoch, 0);
 });
+
+test('after a round settles and before its owner claims, the plates show what comes back, not the filled part', () => {
+  const accounts = {
+    insider: acct([], [{ id: '1', epoch: '3', portions: [[1, String(100n * T), '0'], [0, String(50n * T), '0']] }]),
+    late: acct([], [{ id: '2', epoch: '3', portions: [[1, String(100n * T), '100']] }]),
+  };
+  const settlements = { 3: { requested: [[1, String(200n * T)], [0, String(50n * T)]], filled: [[1, String(50n * T)]] } };
+  const s = buildStack({ params, open: open(), accounts, settlements, now: launch + 7 * MIN });
+  const p1 = s.find((p) => p.vintage === 1);
+  assert.equal(p1.held, 150n * T, 'each of two requests of 100 gets back 75 of its 100');
+  assert.equal(s.find((p) => p.vintage === 0).held, 50n * T, 'a vintage that was not filled at all comes back whole');
+  assert.equal(p1.queued, 0n);
+});

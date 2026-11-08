@@ -96,7 +96,7 @@ function initials(plate) {
 }
 
 function renderStack() {
-  const stack = buildStack({ params: state.params, open: state.open, accounts: state.accounts, now: now() });
+  const stack = buildStack({ params: state.params, open: state.open, accounts: state.accounts, settlements: state.settlements, now: now() });
   const ol = $('stack');
   const keep = new Set(stack.map((p) => p.vintage));
   for (const [v, li] of rows) {

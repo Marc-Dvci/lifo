@@ -69,7 +69,7 @@ It writes `results/crash-testnet.json` with every transaction hash.
 | Limit (Workers Free) | Use |
 |---|---|
 | 10 ms CPU per request | About 0.13 ms of CPU for building, signing and parsing one transaction (`node worker/bench.mjs`, Node, not a Cloudflare figure). The rest of a request waits on the RPC. |
-| 50 external subrequests per invocation | `/api/state`: 6 RPC calls. An action: 3 to 4 (nonce, block, send, and one view for a sell). The cron stops itself at 45; a normal minute makes 2 to 12. |
+| 50 external subrequests per invocation | `/api/state`: 6 RPC calls, plus one per finished round that a demo role has not claimed yet (at most 6). An action: 3 to 4 (nonce, block, send, and one view for a sell). The cron stops itself at 45; a normal minute makes 2 to 14. |
 | 100,000 requests per day | The page polls every 5 s while the tab is visible and stops 15 minutes after the last click. State answers are cached 4 s inside an isolate. Static files do not count. |
 | 100,000 Durable Object requests per day | One per action, per cron minute (1,440) and per uncached state read. |
 | 5 cron triggers | 1 used. |

@@ -45,6 +45,10 @@ export async function readState(ctx, d) {
     ctx.rpc.view(cid, 'get_open'),
     ...ROLE_NAMES.map((r) => ctx.rpc.view(cid, 'get_account', { account_id: cfg.roles[r] })),
   ]);
+  // Requests of finished rounds that are not yet claimed: the page needs how each vintage was filled.
+  const current = BigInt(open.current_epoch ?? 0);
+  const epochs = [...new Set(accounts.flatMap((a) => (a?.pending ?? []).map((p) => String(p.epoch)).filter((e) => BigInt(e) < current)))].slice(0, 6);
+  const settlements = Object.fromEntries((await Promise.all(epochs.map(async (e) => [e, await ctx.rpc.view(cid, 'get_settlement', { epoch: e })]))).filter(([, s]) => s));
   const log = await ctx.getLog(d);
   return {
     d,
@@ -55,6 +59,7 @@ export async function readState(ctx, d) {
     params,
     pool,
     open,
+    settlements,
     accounts: Object.fromEntries(ROLE_NAMES.map((r, i) => [r, { id: cfg.roles[r], view: accounts[i] }])),
     plan: Object.fromEntries(ROLE_NAMES.map((r) => [r, { buy_near: String(PLAN[r].buy / NEAR), sell_pct: Number(PLAN[r].sellPct) }])),
     rounds: log.rounds,
