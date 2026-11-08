@@ -1,7 +1,7 @@
 // A scripted crash on one deployment, with the four demo accounts.
 //
 //   node scripts/crash.mjs --network sandbox --keys .guest/keys-sandbox.json
-//   node scripts/crash.mjs --network testnet --keys .guest/keys-testnet.json --rpc https://rpc.testnet.near.org
+//   node scripts/crash.mjs --network testnet --keys .guest/keys-testnet.json --rpc https://test.rpc.fastnear.com
 //
 // Plates (vintages) are made on the contract's own clock: the early buyer and the insider buy in a first vintage, the
 // early buyer buys a little more in the next, the late buyer and the panic seller buy in a third. In the last round of

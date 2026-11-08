@@ -23,7 +23,7 @@ crons = ["* * * * *"]
 
 [vars]
 NETWORK = "testnet"
-RPC_URL = "https://rpc.testnet.near.org"
+RPC_URL = "https://test.rpc.fastnear.com"
 EXPLORER_TX = "https://testnet.nearblocks.io/txns/"
 EXPLORER_ACCOUNT = "https://testnet.nearblocks.io/address/"
 CONTRACT_LAUNCH = "launch.lifo.testnet"

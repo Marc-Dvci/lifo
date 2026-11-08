@@ -59,7 +59,7 @@ curl https://lifo-demo.<your-subdomain>.workers.dev/api/state?d=demo
 It returns the pool, the open round, the four accounts and the logs. After a minute, `npx wrangler tail` shows the cron running. Then, from the repository root, the scripted crash (about 10 minutes at demo speed):
 
 ```
-node scripts/crash.mjs --network testnet --keys .guest/keys-testnet.json --rpc https://rpc.testnet.near.org
+node scripts/crash.mjs --network testnet --keys .guest/keys-testnet.json --rpc https://test.rpc.fastnear.com
 ```
 
 It writes `results/crash-testnet.json` with every transaction hash.

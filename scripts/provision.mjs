@@ -19,7 +19,7 @@ const arg = (name, fallback) => {
   return i > 0 ? process.argv[i + 1] : fallback;
 };
 const network = arg('network', 'sandbox');
-const rpcUrl = arg('rpc', network === 'sandbox' ? 'http://127.0.0.1:3030' : 'https://rpc.testnet.near.org');
+const rpcUrl = arg('rpc', network === 'sandbox' ? 'http://127.0.0.1:3030' : 'https://test.rpc.fastnear.com');
 const wasmPath = new URL(arg('wasm', '../target/near/lifo/lifo.wasm'), import.meta.url);
 const roleNear = arg('role-near', network === 'sandbox' ? '200' : '40');
 const contractNear = arg('contract-near', '5');
