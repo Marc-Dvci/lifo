@@ -1,6 +1,6 @@
 # insider_dump
 
-Simulated, not market data. Command: `python -m lifo.sweep --seeds 10 --workers 4`. Seeds 1 to 10, means over seeds. Commit `500881d`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots.
+Simulated. Command: `python -m lifo.sweep --seeds 10 --workers 4`. Seeds 1 to 10, means over seeds. Commit `500881d`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots.
 Runtime: 491 s for 9000 runs.
 
 

@@ -396,7 +396,7 @@ def main(argv: list[str] | None = None) -> int:
             w.writerows(rows)
     command = f"python -m lifo.refresh --seeds {seeds} --workers {args.workers}"
     meta = (
-        f"Simulated, not market data. Command: `{command}`. Seeds 1 to {seeds}. Commit `{git_commit()}`. "
+        f"Simulated. Command: `{command}`. Seeds 1 to {seeds}. Commit `{git_commit()}`. "
         f"Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots. "
         f"Runs: {len(rows)}, in `results/refresh.csv`"
         + ("" if math.isnan(runtime) else f"; runtime {runtime:.0f} s")

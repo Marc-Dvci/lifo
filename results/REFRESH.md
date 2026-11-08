@@ -1,6 +1,6 @@
 # The refresh attack: decomposition and countermeasures
 
-Simulated, not market data. Command: `python -m lifo.refresh --seeds 10 --workers 4`. Seeds 1 to 10. Commit `500881d`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots. Runs: 4000, in `results/refresh.csv`; runtime 195 s.
+Simulated. Command: `python -m lifo.refresh --seeds 10 --workers 4`. Seeds 1 to 10. Commit `500881d`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots. Runs: 4000, in `results/refresh.csv`; runtime 195 s.
 
 ﻿
 ## Findings

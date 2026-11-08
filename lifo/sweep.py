@@ -142,7 +142,7 @@ def fmt(v: float) -> str:
 
 def header(command: str, seeds: int, commit: str) -> str:
     return (
-        f"Simulated, not market data. Command: `{command}`. Seeds 1 to {seeds}, means over seeds. "
+        f"Simulated. Command: `{command}`. Seeds 1 to {seeds}, means over seeds. "
         f"Commit `{commit}`. Curve: 30 NEAR virtual, 1,073,000,000 tokens virtual, max supply 80 %, 16 lots.\n"
     )
 
