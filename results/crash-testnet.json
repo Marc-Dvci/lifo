@@ -1,0 +1,285 @@
+{
+  "command": "node scripts/crash.mjs --network testnet --keys .guest/keys-testnet.json --rpc https://test.rpc.fastnear.com",
+  "seed": "none: scripted, no random choice",
+  "git_commit": "282aa9b",
+  "network": "testnet",
+  "rpc": "https://test.rpc.fastnear.com",
+  "contract": "demo.lifo.testnet",
+  "params": {
+    "virtual_near": "30000000000000000000000000",
+    "virtual_tokens": "1073000000000000000000000000",
+    "max_supply": "858400000000000000000000000",
+    "gate_bps": 500,
+    "sell_fee_bps": 50,
+    "epoch_length": "60000000000",
+    "vintage_length": "180000000000",
+    "launch_time": "1794099298339487057",
+    "max_lots": 16
+  },
+  "started": "2026-11-08T01:00:54.882Z",
+  "finished": "2026-11-08T01:11:20.906Z",
+  "steps": [
+    {
+      "t": 10,
+      "role": "early",
+      "method": "buy",
+      "args": {},
+      "deposit": "2000000000000000000000000",
+      "hash": "2jihRkFNqmbiHNW4GXSmpPWwsU4KieJ2uki9xucQYNDG",
+      "ok": true,
+      "error": null,
+      "note": "plate 2, early buyer",
+      "events": [
+        "buy"
+      ]
+    },
+    {
+      "t": 13,
+      "role": "insider",
+      "method": "buy",
+      "args": {},
+      "deposit": "3000000000000000000000000",
+      "hash": "37UQVy2G3DnF5SMkEVf5ThTSfZqg8CYHbtnARVsMm5jy",
+      "ok": true,
+      "error": null,
+      "note": "plate 2, insider",
+      "events": [
+        "buy"
+      ]
+    },
+    {
+      "t": 190,
+      "role": "early",
+      "method": "buy",
+      "args": {},
+      "deposit": "1000000000000000000000000",
+      "hash": "Hije6yjKffQJU2esdVLR5bJHCpoZV63ERsbwH1QwcrV4",
+      "ok": true,
+      "error": null,
+      "note": "plate 3, early buyer",
+      "events": [
+        "buy"
+      ]
+    },
+    {
+      "t": 370,
+      "role": "late",
+      "method": "buy",
+      "args": {},
+      "deposit": "1000000000000000000000000",
+      "hash": "GCR1uGJ38YPsSTE7CKCuFnUUanZLpUuGUKgimc9uH7ZV",
+      "ok": true,
+      "error": null,
+      "note": "plate 4, late wave",
+      "events": [
+        "buy"
+      ]
+    },
+    {
+      "t": 374,
+      "role": "late",
+      "method": "buy",
+      "args": {},
+      "deposit": "1000000000000000000000000",
+      "hash": "2dqHsbwXwmTcirwuUDtguH4KY6s1txeHa6ZYwnDDwSqY",
+      "ok": true,
+      "error": null,
+      "note": "plate 4, late wave",
+      "events": [
+        "buy"
+      ]
+    },
+    {
+      "t": 377,
+      "role": "panic",
+      "method": "buy",
+      "args": {},
+      "deposit": "1000000000000000000000000",
+      "hash": "GGY6DrAHWBSMFu7XvzYKZQ2BBKNZy4nuVrqvmvnNdR8q",
+      "ok": true,
+      "error": null,
+      "note": "plate 4, late wave",
+      "events": [
+        "buy"
+      ]
+    },
+    {
+      "t": 381,
+      "role": "panic",
+      "method": "buy",
+      "args": {},
+      "deposit": "1000000000000000000000000",
+      "hash": "ExWqy6wbKoxDmuQNRbfWmoriYkdLQ2HD12GzgLdTkVBA",
+      "ok": true,
+      "error": null,
+      "note": "plate 4, late wave",
+      "events": [
+        "buy"
+      ]
+    },
+    {
+      "t": 490,
+      "role": "insider",
+      "method": "request_sell",
+      "args": {
+        "amount": "86099807135287654860715167"
+      },
+      "deposit": "25000000000000000000000",
+      "hash": "75TZKuyTcRjrhCY4YknPULCyJ3ajK4xTjYGDSzfitFG6",
+      "ok": true,
+      "error": null,
+      "note": "insider dumps everything",
+      "events": [
+        "sell_request"
+      ]
+    },
+    {
+      "t": 494,
+      "role": "panic",
+      "method": "request_sell",
+      "args": {
+        "amount": "42275754795327295086528884"
+      },
+      "deposit": "25000000000000000000000",
+      "hash": "FrvgLrudK5FBT7RcPUhjh5BRLPAWwJQNixe5dfCGWJb7",
+      "ok": true,
+      "error": null,
+      "note": "panic seller sells everything",
+      "events": [
+        "sell_request"
+      ]
+    },
+    {
+      "t": 497,
+      "role": "late",
+      "method": "request_sell",
+      "args": {
+        "amount": "46960864807834123900419194"
+      },
+      "deposit": "25000000000000000000000",
+      "hash": "GjVjeuNRUZdPGXXvmoHeqwnnQ5Xpz7bmn9wuuQeTfMsy",
+      "ok": true,
+      "error": null,
+      "note": "late buyer sells everything",
+      "events": [
+        "sell_request"
+      ]
+    },
+    {
+      "t": 565,
+      "role": "late",
+      "method": "claim",
+      "args": {},
+      "deposit": "0",
+      "hash": "Cuuj2W2MbYcPdsWDD749y3eRXssrFNcrxhfkBcKvLsW",
+      "ok": false,
+      "error": "\"Smart contract panicked: nothing to claim\"",
+      "note": "pays and returns the unfilled",
+      "events": []
+    },
+    {
+      "t": 569,
+      "role": "panic",
+      "method": "claim",
+      "args": {},
+      "deposit": "0",
+      "hash": "38qSK4uAy3RbvmtwageKrvPJL7pcdkGuJ95AQ4f5SxGZ",
+      "ok": true,
+      "error": null,
+      "note": "pays and returns the unfilled",
+      "events": [
+        "claim"
+      ]
+    },
+    {
+      "t": 573,
+      "role": "insider",
+      "method": "request_sell",
+      "args": {
+        "amount": "86099807135287654860715167"
+      },
+      "deposit": "25000000000000000000000",
+      "hash": "J9cFsv92TUC6pXCfupKji4CieKL3bkmq9wHYBBUrTVg6",
+      "ok": true,
+      "error": null,
+      "note": "insider asks again",
+      "events": [
+        "sell_request"
+      ]
+    },
+    {
+      "t": 626,
+      "role": "insider",
+      "method": "claim",
+      "args": {},
+      "deposit": "0",
+      "hash": "BKPoUzrv1CDwqQnJzD3Tgt3p3PhRkkf8xxcT3Uj1pEMP",
+      "ok": false,
+      "error": "\"Smart contract panicked: nothing to claim\"",
+      "note": "pays and returns the unfilled",
+      "events": []
+    }
+  ],
+  "settled_rounds": [],
+  "final_pool": {
+    "x": "39003917600000000000000001",
+    "y": "825404514210869850977565849",
+    "k": "32194009658948796691853258648374556610869850977565849",
+    "reserve": "9003917600000000000000001",
+    "supply": "247595485789130149022434151",
+    "unclaimed_near": "0",
+    "locked": "0",
+    "spot_price": "47254306135325413",
+    "now": "1794100275576995704"
+  },
+  "final": {
+    "early": {
+      "lots": [
+        [
+          2,
+          "66878882896128543459181300"
+        ],
+        [
+          3,
+          "25564441740225267577928159"
+        ]
+      ],
+      "paid_out": "0",
+      "near_spent": "3000000000000000000000000",
+      "near_paid_by_my_claims": "0"
+    },
+    "late": {
+      "lots": [
+        [
+          4,
+          "41579239778878074870688328"
+        ]
+      ],
+      "paid_out": "262510864015198586295576",
+      "near_spent": "2000000000000000000000000",
+      "near_paid_by_my_claims": "0"
+    },
+    "insider": {
+      "lots": [
+        [
+          2,
+          "76141886986841386913177457"
+        ]
+      ],
+      "paid_out": "473890400000000000000000",
+      "near_spent": "3000000000000000000000000",
+      "near_paid_by_my_claims": "0"
+    },
+    "panic": {
+      "lots": [
+        [
+          4,
+          "37431034387056876201458907"
+        ]
+      ],
+      "paid_out": "236321135984801413704423",
+      "near_spent": "2000000000000000000000000",
+      "near_paid_by_my_claims": "236321135984801413704423"
+    }
+  }
+}
