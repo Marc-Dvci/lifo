@@ -13,13 +13,13 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Past the date
         id: date
         run: |
           if [ "$(date -u +%F)" \> "$RESULTS_DATE" ]; then echo "Past $RESULTS_DATE: nothing to check."; echo "done=yes" >> "$GITHUB_OUTPUT"; fi
       - if: steps.date.outputs.done != 'yes'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Both contracts have the reviewed code and no access key; the page answers
