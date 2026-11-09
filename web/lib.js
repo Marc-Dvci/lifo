@@ -120,13 +120,45 @@ export function explorerTxUrl(explorer, hash) {
 
 // --- the stack ----------------------------------------------------------------------------------------------------
 
-/** Newest plate bright pink, older plates fade towards a pale blue-grey. `n` is the number of plates. */
+/** sRGB channels (0 to 1) of an HSL colour. */
+export function hslToRgb(h, s, l) {
+  const sat = s / 100;
+  const lig = l / 100;
+  const a = sat * Math.min(lig, 1 - lig);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    return lig - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [f(0), f(8), f(4)];
+}
+
+const luminance = ([r, g, b]) => {
+  const c = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b);
+};
+
+/** WCAG contrast ratio of two sRGB colours. */
+export function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+export const INK = '#14142b';
+const INK_RGB = [0x14 / 255, 0x14 / 255, 0x2b / 255];
+const WHITE_RGB = [1, 1, 1];
+
+/**
+ * Newest plate bright pink, older plates fade towards a pale blue-grey. `n` is the number of plates. The label ink is
+ * whichever of white and the page ink contrasts more with the plate.
+ */
 export function plateColor(rank, n) {
   const t = n <= 1 ? 0 : rank / (n - 1);
   const h = Math.round(345 - 120 * t);
   const s = Math.round(100 - 68 * t);
   const l = Math.round(56 + 18 * t);
-  return { fill: `hsl(${h} ${s}% ${l}%)`, ink: l < 66 ? '#fff' : '#1b1b2f' };
+  const rgb = hslToRgb(h, s, l);
+  const ink = contrast(rgb, WHITE_RGB) > contrast(rgb, INK_RGB) ? '#fff' : INK;
+  return { fill: `hsl(${h} ${s}% ${l}%)`, ink, rgb };
 }
 
 export const launchMs = (params) => Number(big(params.launch_time) / 1_000_000n);

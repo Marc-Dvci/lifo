@@ -98,6 +98,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+      - name: near-api-js, the reference for the transaction bytes the Worker signs
+        run: npm ci --prefix e2e
       - name: The Worker's tests
         run: node --test "worker/test/*.test.js"
       - name: The page's tests

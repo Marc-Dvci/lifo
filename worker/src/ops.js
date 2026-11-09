@@ -99,6 +99,9 @@ const detailOf = (events) => {
   return {};
 };
 
+/** What a buyer keeps on top of its deposit for gas and storage. */
+const BUY_MARGIN = NEAR / 10n;
+
 export async function act(ctx, { d, role, action, ip }) {
   if (!DEPLOYMENTS.includes(d) || !ROLE_NAMES.includes(role)) return { status: 400, body: { error: 'bad request' } };
   const cfg = config(ctx.env);
@@ -116,6 +119,11 @@ export async function act(ctx, { d, role, action, ip }) {
   const signerId = cfg.roles[role];
   let call;
   if (action === 'buy') {
+    // A role that cannot pay its deposit plus gas is told so, rather than sending a transaction the chain refuses.
+    const balance = await ctx.rpc.balance(signerId);
+    if (balance < PLAN[role].buy + BUY_MARGIN) {
+      return { status: 409, body: { error: 'This demo account has spent its testnet NEAR. Play another role, or sell with this one.' } };
+    }
     call = { method: 'buy', args: {}, gas: 50n * TGAS, deposit: PLAN[role].buy };
   } else {
     const acct = await ctx.rpc.view(contractId, 'get_account', { account_id: signerId });

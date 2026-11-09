@@ -106,7 +106,8 @@ h1 { font-size: clamp(2.35rem, 8.6vw, 5rem); line-height: .98; }
 .act { border: 0; border-radius: 1rem; padding: .85rem .6rem; font-weight: 900; font-size: 1rem; line-height: 1.2; color: #fff; box-shadow: 0 5px 0 rgba(20, 20, 43, .22); transition: transform .08s, box-shadow .08s, opacity .2s; min-height: 3.4rem; }
 .act small { display: block; font-weight: 600; font-size: .75rem; opacity: .92; }
 .act.buy { background: var(--blue); }
-.act.sell { background: var(--pink); }
+/* a deeper pink than the plates, so the white label keeps a 4.5:1 contrast */
+.act.sell { background: #d1004c; }
 .act:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 rgba(20, 20, 43, .22); }
 .act:disabled { opacity: .45; cursor: progress; }
 .error { color: #c0173f; }

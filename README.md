@@ -3,15 +3,16 @@
 **LIFO is a memecoin on NEAR whose reserve pays the newest buyers first in a crash, so the earliest holders, not the latest, wait at the back of the line.**
 
 [![tests](https://github.com/Marc-Dvci/lifo/actions/workflows/tests.yml/badge.svg)](https://github.com/Marc-Dvci/lifo/actions/workflows/tests.yml)
+[![CodeQL](https://github.com/Marc-Dvci/lifo/actions/workflows/codeql.yml/badge.svg)](https://github.com/Marc-Dvci/lifo/actions/workflows/codeql.yml)
 [![live](https://github.com/Marc-Dvci/lifo/actions/workflows/live.yml/badge.svg)](https://github.com/Marc-Dvci/lifo/actions/workflows/live.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-81%20model%20%C2%B7%2036%20contract%20%C2%B7%2046%20web-2ea44f)](#evidence)
+[![tests](https://img.shields.io/badge/tests-81%20model%20%C2%B7%2036%20contract%20%C2%B7%2048%20web-2ea44f)](#evidence)
 [![model coverage](https://img.shields.io/badge/model%20coverage-100%25%20lines%20%C2%B7%20100%25%20branches-2ea44f)](#evidence)
 [![demo](https://img.shields.io/badge/demo-lifo--amt.pages.dev-ff3d7f)](https://lifo-amt.pages.dev)
 
-[![The live LIFO page during a crash on testnet: the late buyers and the insider ask to sell, their plates turn hatched and the gate binds at 9.57 NEAR asked against 0.623 NEAR; the round closes and only the newest plate, 648, shrinks while the older plates come back whole](docs/screens/crash.gif)](https://lifo-amt.pages.dev)
+[![Watch the film: LIFO, 1 minute 42. A frame of the live page during a crash on testnet, the gate binding, with a play button](docs/film-thumbnail.png)](https://youtu.be/tYdNlQNqNK8)
 
-*The live page during round 1944 on testnet (sped up while the sells arrive). The newest plate is paid; the insider's plate 2, at the bottom, waits.*
+**[Watch the film (1:42)](https://youtu.be/tYdNlQNqNK8)**: a crash played on the live page on NEAR testnet, narrated by Marc.
 
 | Live page | Track | What NEAR does here | Headline result (simulated) |
 |---|---|---|---|
@@ -50,6 +51,10 @@ Open [lifo-amt.pages.dev](https://lifo-amt.pages.dev). It is the same contract c
 1. Pick a role (early buyer, late buyer, insider, panic seller) and press **Buy** or **Sell**. The server signs a real testnet transaction for that demo account; each action is limited to 8 per visitor per 10 minutes.
 2. Watch the plates. The newest plate is on top and is paid first. Hatched parts are waiting to be sold in the round.
 3. When a round ends, the gate settles it. If sellers ask for more than 5 % of the reserve, the newest plates are paid and the older ones wait.
+
+[![The live LIFO page during a crash on testnet: the late buyers and the insider ask to sell, their plates turn hatched and the gate binds at 9.57 NEAR asked against 0.623 NEAR; the round closes and only the newest plate, 648, shrinks while the older plates come back whole](docs/screens/crash.gif)](https://lifo-amt.pages.dev)
+
+*The live page during round 1944 on testnet (sped up while the sells arrive). The newest plate is paid; the insider's plate 2, at the bottom, waits.*
 
 The screenshots below are the live page at 2x in headless Chromium on 9 November 2026, during a crash played through the page's own buttons ([`results/crash-page.json`](results/crash-page.json) lists every transaction). The late buyer and the panic seller bought plate 648. Then, in round 1944, the insider asked to sell everything it holds (plate 2), and the late buyer and the panic seller asked to sell everything they hold (plates 648, 643 and 4).
 
@@ -189,11 +194,12 @@ Every figure comes from a command in this repository.
 | Lint, format, types | ruff, `ruff format --check` and strict mypy pass | `ruff check .`, `mypy` |
 | Contract tests | 34 unit tests named by requirement, 2 replay tests | `cargo test -p lifo -j 4 -q` |
 | Vectors replayed by the contract | `edge.json`: 10 cases, 134 steps; `random.json`: 200 cases, 3,551 steps. After every step the contract compares the result or the error, the reserve, the supply, every account's lots and payouts, and the open requests | [`contract/tests/vectors.rs`](contract/tests/vectors.rs) |
-| Worker and page tests | 32 and 14 passed | `node --test` (see [Run it](#run-it)) |
+| Worker and page tests | 33 and 15 passed | `node --test` (see [Run it](#run-it)) |
 | Sandbox checks | 21 passed, 0 failed (initialisation, deposits on every method, source metadata) | [`results/e2e-checks.md`](results/e2e-checks.md) |
 | Gas, local sandbox (nearcore 2.14.0) | `settle` 1.86, 1.87, 2.36 and 3.41 Tgas for 1, 1, 16 and 48 vintages (1, 48, 48 and 48 requests); `claim` 2.26 to 2.43 Tgas on average; `buy` 3.16 to 3.20 Tgas | [`results/gas.md`](results/gas.md) |
 | Scripted crash, testnet | 14 transactions | [`results/crash-testnet.json`](results/crash-testnet.json) |
 | Crash through the page's buttons, testnet | 9 transactions; round 1944 paid 0.623 NEAR, all to the newest plate | [`results/crash-page.json`](results/crash-page.json) |
+| Accessibility, live page (axe-core 4.10.2) | 0 violations at 1440 px and 390 px, demo and launch deployments | `cd e2e && npm ci && node axe.mjs` |
 | Both contracts, public RPC | code hash equals the reviewed wasm; 0 access keys | `python scripts/live_check.py` |
 
 ## Claims and the tests that pin them
@@ -220,6 +226,8 @@ Each row is a claim this README makes, where it is implemented, and a test that 
 | A visitor gets 8 actions in 10 minutes and the whole demo 120 an hour | `worker/src/limits.js` | `a visitor gets 8 actions in 10 minutes, then a 429 with the wait, and nothing is signed for the refused one` (`worker/test/ops.test.js`) |
 | A rate-limited RPC endpoint does not stop the page | `createRpc` in `worker/src/chain.js`, `worker/src/memo.js` | `a rate-limited or failing endpoint moves the call to the next one, which is then tried first`; `when the chain cannot be read, the last good state is served with the current time and its age, up to the limit` |
 | The page says who is paid in a round where the gate binds | `describeRound` in `web/lib.js` | `a round where the gate binds says who was filled, who was partly filled and who waits` (`web/test/lib.test.js`) |
+| Every plate label meets the WCAG AA contrast of 4.5:1 | `plateColor` in `web/lib.js` | `every plate label meets the WCAG AA contrast of 4.5 to 1, for stacks of 1 to 12 plates` (`web/test/lib.test.js`); [`e2e/axe.mjs`](e2e/axe.mjs) on the live page |
+| A demo role that cannot pay is told so before anything is signed | `act` in `worker/src/ops.js` | `a buy by a role that cannot pay its deposit and gas is refused before anything is signed, and says why` (`worker/test/ops.test.js`) |
 
 ## Run it
 
@@ -287,11 +295,12 @@ On the machine that built the deployed contracts the file is 213,191 bytes with 
 **6. Worker and page tests:**
 
 ```
+npm ci --prefix e2e
 node --test "worker/test/*.test.js"
 node --test "web/test/*.test.js"
 ```
 
-They end with `pass 32` and `pass 14`.
+They end with `pass 33` and `pass 15`. The first line installs near-api-js, which one Worker test uses as the reference for the transaction bytes the Worker signs; without it that test is skipped.
 
 **7. The testnet contracts and the live page:**
 

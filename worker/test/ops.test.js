@@ -20,7 +20,7 @@ async function fakeSigner() {
 const BLOCK = base58Encode(new Uint8Array(32).fill(5));
 
 /** A chain that answers views from `views[contract][method]` and records every transaction it is sent. */
-async function setup({ views = {}, outcome } = {}) {
+async function setup({ views = {}, outcome, balance = 100n * 10n ** 24n } = {}) {
   const sent = [];
   const signer = await fakeSigner();
   const rpc = {
@@ -30,6 +30,7 @@ async function setup({ views = {}, outcome } = {}) {
     },
     blockHash: async () => BLOCK,
     nonce: async () => 10n,
+    balance: async () => balance,
     async call(method, params) {
       assert.equal(method, 'send_tx');
       sent.push(Buffer.from(fromBase64(params.signed_tx_base64)).toString('latin1'));
@@ -62,6 +63,17 @@ test('a buy sends the role its fixed amount to the chosen contract and the page 
   const feed = ctx.data.get('feed:demo');
   assert.deepEqual([feed[0].role, feed[0].action, feed[0].tokens, feed[0].vintage, feed[0].hash], ['early', 'buy', '777', 4, r.body.hash]);
   assert.equal(ctx.data.get('feed:launch'), undefined);
+});
+
+test('a buy by a role that cannot pay its deposit and gas is refused before anything is signed, and says why', async () => {
+  const ctx = await setup({ balance: 2n * 10n ** 24n });
+  const r = await act(ctx, { d: 'demo', role: 'early', action: 'buy', ip: '1.1.1.1' });
+  assert.equal(r.status, 409);
+  assert.match(r.body.error, /spent its testnet NEAR/);
+  assert.equal(ctx.sent.length, 0);
+  const late = await act(ctx, { d: 'demo', role: 'late', action: 'buy', ip: '1.1.1.1' });
+  assert.equal(late.status, 200);
+  assert.equal(ctx.sent.length, 1);
 });
 
 test('a sell asks for the role share of what it holds and attaches the request storage', async () => {

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStack, describeAction, describeRound, fmtClock, fmtNear, fmtTokens, gateMeter, listVintages, placeInLine,
-  plateColor, roundClock, sellPayout,
+  plateColor, roundClock, sellPayout, contrast, hslToRgb, INK,
 } from '../lib.js';
 
 const T = 10n ** 18n;
@@ -115,8 +115,18 @@ test('plates fade with age: the newest is the brightest', () => {
   assert.equal(c, 'hsl(225 32% 74%)');
   assert.notEqual(a, b);
   assert.equal(plateColor(0, 1).fill, a);
-  assert.equal(plateColor(0, 3).ink, '#fff');
-  assert.equal(plateColor(2, 3).ink, '#1b1b2f');
+});
+
+test('every plate label meets the WCAG AA contrast of 4.5 to 1, for stacks of 1 to 12 plates', () => {
+  const rgb = { '#fff': [1, 1, 1], [INK]: [0x14 / 255, 0x14 / 255, 0x2b / 255] };
+  for (let n = 1; n <= 12; n++) {
+    for (let i = 0; i < n; i++) {
+      const c = plateColor(i, n);
+      assert.ok(contrast(c.rgb, rgb[c.ink]) >= 4.5, `plate ${i} of ${n}: ${c.fill} with ${c.ink}`);
+    }
+  }
+  assert.deepEqual(hslToRgb(0, 100, 50), [1, 0, 0]);
+  assert.equal(contrast([1, 1, 1], [0, 0, 0]), 21);
 });
 
 test('a role sees its newest plate, how far from the top it is, and what is paid before it', () => {
