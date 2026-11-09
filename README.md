@@ -65,7 +65,7 @@ After the Worker's timer settled the round: 0.623 NEAR left the reserve, all of 
 
 ## The problem
 
-When a memecoin crashes, the holders who bought last lose most. The official TRUMP and MELANIA tokens are a documented case: CryptoRank estimated retail losses above $4.3 billion, with about two million wallets underwater ([Ars Technica](https://arstechnica.com/tech-policy/2026/04/investors-lost-billions-on-trumps-memecoin-another-gala-wont-fix-that/), [BeInCrypto](https://beincrypto.com/trump-meme-coins-took-4-billion-from-retail-investors/)). These are an analytics firm's estimates.
+When a memecoin crashes, the holders who bought last lose most, and the crash is the usual ending: Solidus Labs flagged 98.6 % of the more than seven million tokens launched on Pump.fun since January 2024 as rug pulls or pump-and-dump schemes ([CoinDesk, 8 May 2025](https://www.coindesk.com/business/2025/05/07/98-of-tokens-on-pump-fun-have-been-rug-pulls-or-an-act-of-fraud-new-report-says)). That is an analytics firm's classification, and Pump.fun disputes it.
 
 Every memecoin market runs first in, first out: whoever sells first gets the best price, and the last buyers are the exit liquidity. LIFO changes the order that matters in a crash: the reserve pays the newest buyers before the oldest. In calm markets nothing is different.
 
