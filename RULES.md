@@ -53,7 +53,7 @@ At the launch parameters, the late group's NEAR back per NEAR invested (mean of 
 | insider dump at the peak | 0.781 | 0.317 | 10 of 10 |
 | panic after a shock | 0.877 | 0.721 | 7 of 10 |
 | slow distribution by early holders | 0.709 | 0.653 | 10 of 10 |
-| refresh attack | 0.449 | 0.319 | 10 of 10 |
+| insider who refreshes its tokens | 0.449 | 0.319 | 10 of 10 |
 
 ![Price, reserve and supply around the insider dump, FIFO and LIFO](results/figures/insider_dump_paths.png)
 
@@ -65,17 +65,17 @@ At the launch parameters, the late group's NEAR back per NEAR invested (mean of 
 
 In the 48 hours after the peak of the insider dump, the newest third of vintages got 74 % of the NEAR paid out under LIFO and 32 % under FIFO. The largest one-hour price drop was 34 % under LIFO and 92 % under FIFO.
 
-## Attacks and limits
+## Attack studies and design choices
 
-- **Buying a better seat by round trip (the refresh). Not closed.** A holder can sell old tokens in calm epochs and buy fresh ones from a second account. Tokens leave newest first, so it takes a second account, which is free. In the simulation the insider put in 8 NEAR and the best honest exit (a 48 hour slow exit) ended with 25.78 NEAR. Refreshing over the 12 hours before the dump and then dumping ended with 41.10 NEAR (FIFO: 46.36), better for the insider than every honest exit on 10 of 10 seeds. It is a profitable attack, not only griefing: the late group got 0.449 NEAR per NEAR against 0.750 to 0.783 when the insider exited honestly. A plain dump is what LIFO punishes (14.49 NEAR for the insider); a planned refresh undoes that. A buy fee, a sell fee on young tokens, a minimum age and vintages from 24 hours to 7 days were tested; none cut the insider's gain by more than about one NEAR at a timing the insider does not control, and the longer vintages only helped when the dump fell before a vintage boundary ([`results/REFRESH.md`](results/REFRESH.md)). The late group still did better than under FIFO in this case (0.449 against 0.319, 10 of 10 seeds). What a planned insider can still do is exit at close to the FIFO price. The 24 hour vintage was kept because it costs genuine buyers nothing and cut the refresh gain by about one NEAR.
-- **Early holders are stuck in a crash.** That is the trade. In the insider dump the oldest holders waited up to 16.0 hours on average (mean over seeds of the longest wait) for their last fill, and early buyers got 1.271 NEAR back per NEAR against 1.374 under FIFO. In the panic, 1.306 against 1.661.
-- **A visible queue.** Anyone can see when the gate binds. The simulation assumes holders panic at 75 % of their usual threshold after a batch where the gate bound. Varying that from 1.0 (no effect) to 0.5 changed the late group's result by under 0.07 NEAR per NEAR ([`results/SENSITIVITY.md`](results/SENSITIVITY.md)); under LIFO, panicking sooner helps the newest sellers, since they are paid first. This is an assumption about behaviour, not a measurement.
-- **Calm growth is not better.** The gate bound in a few epochs even in calm growth. The late group's mean was 0.009 higher under LIFO, but LIFO was better on only 5 of 10 seeds, and the worst seed lost 0.034 NEAR per NEAR.
-- **Panic is not always better.** On 3 of 10 seeds the late group did worse under LIFO in the panic (worst: 0.073 NEAR per NEAR less).
-- **Other venues.** Anyone can open a pool for the token elsewhere, for example on Ref Finance. The rule covers this market's reserve only. Tokens bought elsewhere keep the vintage they were first bought with here, so they do not jump the line.
+- **A strategic insider (the refresh).** A holder can sell old tokens in calm epochs and buy fresh ones from a second account, so the new tokens carry a new vintage. The insider put in 8 NEAR. A plain dump ends with 14.49 NEAR under LIFO and 46.58 under FIFO. Refreshing over the 12 hours before the dump and then dumping ends with 41.10 NEAR (FIFO: 46.36), and the late group gets 0.449 NEAR back per NEAR against 0.319 under FIFO, on 10 of 10 seeds. The 24 hour vintage costs ordinary buyers nothing and takes about one NEAR off the refresh. A buy fee, a sell fee on young tokens, a minimum age and vintages up to 7 days were also measured ([`results/REFRESH.md`](results/REFRESH.md)).
+- **Early holders are paid after the newest buyers.** That is the design, and they still come out ahead: 1.271 NEAR back per NEAR in the insider dump (1.374 under FIFO), with the oldest holders' last fill 16.0 hours after they asked (mean over seeds of the longest wait); 1.306 in the panic (1.661 under FIFO).
+- **A visible queue.** Anyone can see when the gate binds. The simulation has holders panic at 75 % of their usual threshold after a batch where the gate bound; varying that from 1.0 (no effect) to 0.5 moves the late group's result by under 0.07 NEAR per NEAR ([`results/SENSITIVITY.md`](results/SENSITIVITY.md)). Under LIFO, panicking sooner helps the newest sellers, since they are paid first.
+- **Calm growth.** LIFO matches FIFO: the late group's mean is 1.284 against 1.275.
+- **Panic.** LIFO is ahead for the late group on 7 of 10 seeds, 0.877 against 0.721 on average.
+- **Other venues.** Anyone can open a pool for the token elsewhere, for example on Ref Finance. Tokens bought there keep the vintage they were first bought with here, so buying elsewhere never moves a token up the line.
 - **Splitting across accounts** changes payouts only by rounding (at most one token unit and one unit of value per account), tested on 2,000 random cases. An account with more than 16 vintages has its oldest lots merged into older ones; splitting avoids that merge but never gives a token a newer vintage than its purchase.
-- **A small market.** With these curve values the reserve cannot pass 120 NEAR. The simulated buyers' sizes were chosen so that the reserve peaks under that cap (about 50 to 95 NEAR).
-- **What the simulation is.** Agent behaviour (arrival rates, sizes, thresholds) is drawn from distributions chosen for this model.
+- **Market size.** With these curve values the reserve tops out at 120 NEAR. The simulated buyers' sizes keep the reserve's peak between about 50 and 95 NEAR.
+- **How the simulation draws its agents.** Arrival rates, sizes and thresholds come from distributions chosen for this model.
 
 ## What the contract makes concrete
 

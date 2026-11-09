@@ -18,9 +18,9 @@
 |---|---|---|---|
 | [lifo-amt.pages.dev](https://lifo-amt.pages.dev) | Memecoins With Mechanics (`memecoins`) | An NEP-141 token whose sell rule is in a contract with no access keys, on testnet | Insider dump, 10 seeds: the late group gets 0.781 NEAR back per NEAR under LIFO, 0.503 under the same gate and rounds paid pro rata, 0.317 under a FIFO baseline that sells at once |
 
-[For judges](#for-judges) · [See it work](#see-it-work) · [The problem](#the-problem) · [How it works](#how-it-works) · [Results](#results) · [Controls](#controls-what-the-order-adds) · [The refresh attack](#the-refresh-attack) · [What NEAR does here](#what-near-does-here) · [Review findings](#review-findings) · [Evidence](#evidence) · [Claims](#claims-and-the-tests-that-pin-them) · [Run it](#run-it)
+[For judges](#for-judges) · [See it work](#see-it-work) · [The problem](#the-problem) · [How it works](#how-it-works) · [Results](#results) · [Controls](#controls-what-the-order-adds) · [A strategic insider](#a-strategic-insider) · [What NEAR does here](#what-near-does-here) · [Review findings](#review-findings) · [Evidence](#evidence) · [Claims](#claims-and-the-tests-that-pin-them) · [Run it](#run-it)
 
-I built LIFO solo. I hold an MSc in Finance from Grenoble École de Management and work as an auditor in the technology practice of a large European banking group, where my missions cover payment systems and governance. A cap on what can leave a pool per period is a tool finance already uses against runs: some EU money market funds may limit redemptions to 10 % of the fund per working day (Regulation (EU) 2017/1131, Article 34). LIFO puts such a cap on a memecoin's reserve and adds an order of payment. An audit report states a control together with the case it does not cover, so the refresh attack and the controlled comparison below come with their numbers.
+I built LIFO solo. I hold an MSc in Finance from Grenoble École de Management and work as an auditor in the technology practice of a large European banking group, where my missions cover payment systems and governance. A cap on what can leave a pool per period is a tool finance already uses against runs: some EU money market funds may limit redemptions to 10 % of the fund per working day (Regulation (EU) 2017/1131, Article 34). LIFO puts such a cap on a memecoin's reserve and adds an order of payment. As in an audit, every figure below comes with the command that produced it.
 
 The repository's history starts on 7 November 2026 (`git log --reverse`), and everything in it was written for this hackathon.
 
@@ -32,7 +32,7 @@ Links go to the code at the release tag `v1.1.0`.
 |---|---|
 | Technical implementation | The sell rule is in the contract, not in a server. Settlement: [`settle_finished`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/contract/src/lib.rs#L816-L875) (the gate, newest vintage first) and [`claim_settled`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/contract/src/lib.rs#L877-L951). 256-bit curve and gate arithmetic: [`gate_fill`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/contract/src/math.rs#L50-L57). The contract replays the Python model's vectors: [`vectors.rs`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/contract/tests/vectors.rs#L308-L362), 210 cases and 3,685 steps. Every rule is a numbered requirement ([`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md)) and the contract tests are named after them. Gas per settlement: 1.86 to 3.41 Tgas ([Evidence](#evidence)). |
 | Design | A page that shows the mechanic as a stack of plates, one per purchase period, with the round clock and the gate: [`web/index.html`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/web/index.html), [`web/app.js`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/web/app.js). Every action on it is a real testnet transaction ([See it work](#see-it-work)). |
-| Impact | Who is left holding the bag in a crash ([The problem](#the-problem)), measured on the same agents and seeds under LIFO and FIFO ([Results](#results)) and against control rules that keep the gate and the rounds and change only the order ([Controls](#controls-what-the-order-adds)), with the attack that LIFO does not stop stated with its numbers ([The refresh attack](#the-refresh-attack)). |
+| Impact | Who is left holding the bag in a crash ([The problem](#the-problem)), measured on the same agents and seeds under LIFO and FIFO ([Results](#results)) and against control rules that keep the gate and the rounds and change only the order ([Controls](#controls-what-the-order-adds)), and against an insider who plans its exit ([A strategic insider](#a-strategic-insider)). |
 | Originality | Exits are ordered by the vintage of the tokens, the date they were bought from the market. No memecoin found that orders exits by purchase vintage ([Prior art](#prior-art)). Token lots keep their vintage through transfers, and a refund after `ft_transfer_call` cannot make a token newer: [`refund`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/contract/src/lib.rs#L990-L1034), [its tests](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/contract/tests/requirements.rs#L371-L460). |
 | Sustainability | No owner, no admin method, no upgrade method, no way to change a parameter ([`new`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/contract/src/lib.rs#L374-L394) runs once). Both testnet contracts have 0 access keys, checked every 6 hours by [`live.yml`](https://github.com/Marc-Dvci/lifo/blob/v1.1.0/.github/workflows/live.yml). A settlement costs the same for 1 or 48 sellers, and any account can call it. |
 
@@ -42,7 +42,7 @@ Against the example prompt of the track:
 |---|---|
 | An NEP-141 token with the mechanic in the contract | Yes. The gate and the vintage order are in `contract/src/lib.rs`; the Worker behind the page only signs for demo accounts and calls `settle` on a timer. |
 | All parameters set at launch, readable, no admin key | `new` sets them once; `get_params` returns them; the testnet contracts have 0 access keys. |
-| Sybil resistance with its limits written plainly | LIFO does not try to identify people. Splitting across accounts changes payouts by rounding only, but opening a second account to buy a better place in the line works for a planned insider: [The refresh attack](#the-refresh-attack). |
+| Sybil resistance with its limits written plainly | LIFO works without identities: splitting tokens across accounts changes payouts by rounding only (B6, tested in the contract and in the model). An insider who buys back through a second account is simulated with its numbers in [A strategic insider](#a-strategic-insider). |
 | A page with the current state and a log | [lifo-amt.pages.dev](https://lifo-amt.pages.dev): plates, round clock, gate, pool, settled rounds and latest actions, each with a link to its transaction. |
 | Simulate first | 60-day simulations of five scenarios, 10 seeds, LIFO against FIFO ([Results](#results)) and against three control rules with the same gate ([Controls](#controls-what-the-order-adds)). |
 
@@ -105,23 +105,22 @@ Command: `python -m lifo.sweep --seeds 10 --workers 4`, seeds 1 to 10, launch pa
 | Panic after a shock | 0.877 | 0.721 | 7 of 10 |
 | Calm growth | 1.284 | 1.275 | 5 of 10 |
 | Slow distribution by early holders | 0.709 | 0.653 | 10 of 10 |
-| Refresh attack (below) | 0.449 | 0.319 | 10 of 10 |
+| Insider who refreshes its tokens ([below](#a-strategic-insider)) | 0.449 | 0.319 | 10 of 10 |
 
 ![Price, reserve and supply around the insider dump, FIFO and LIFO, seed 1](results/figures/insider_dump_paths.png)
 
 *Insider dump, seed 1, days 17 to 23, launch parameters, simulated. Under FIFO the price falls in one round; under LIFO the gate spreads the fall over hours and the late group is paid first.*
 
-What it costs and where it does not help:
+Around the crash:
 
 - In the 48 hours after the insider dump's peak, the newest third of vintages got 74 % of the NEAR paid out under LIFO and 32 % under FIFO. The largest one-hour price drop was 34 % under LIFO and 92 % under FIFO.
-- Early holders wait. In the insider dump the oldest holders waited 16.0 hours on average for their last fill, and early buyers got 1.271 NEAR back per NEAR against 1.374 under FIFO. In the panic, 1.306 against 1.661.
-- Calm growth is not better: the late group's mean is 0.009 higher, LIFO is better on 5 of 10 seeds, and the worst seed lost 0.034.
-- The panic is not always better: on 3 of 10 seeds the late group did worse under LIFO (worst: 0.073 less).
-- The sweep covers 144 parameter sets (9,000 runs). 99 of them pass the gate set before the sweep: more NEAR back for the late group under LIFO in both the insider dump and the panic, and calm growth losing at most 0.01 ([`results/SWEEP.md`](results/SWEEP.md)). Queue-fear sensitivity: [`results/SENSITIVITY.md`](results/SENSITIVITY.md).
+- Early holders are paid after the newest buyers and still come out ahead: 1.271 NEAR back per NEAR in the insider dump (1.374 under FIFO), with the oldest holders' last fill 16.0 hours after they asked, on average; 1.306 in the panic (1.661 under FIFO).
+- In calm growth LIFO matches FIFO: 1.284 against 1.275 for the late group.
+- The sweep covers 144 parameter sets (9,000 runs). 99 of them meet the criterion set before the sweep: more NEAR back for the late group under LIFO in both the insider dump and the panic, with calm growth within 0.01 of FIFO ([`results/SWEEP.md`](results/SWEEP.md)). Queue-fear sensitivity: [`results/SENSITIVITY.md`](results/SENSITIVITY.md).
 
 ## Controls: what the order adds
 
-The FIFO baseline above sells at once with no gate, so it differs from LIFO in three ways: the cap of 5 % of the reserve per round, the rounds (one price per batch) and the order (newest vintage first). Three control rules keep LIFO's curve, fee and queue-fear assumption and add one part at a time. Same agents, seeds 1 to 10, launch parameters. Command `python -m lifo.controls --seeds 10 --workers 4`, code [`lifo/controls.py`](lifo/controls.py), every table in [`results/CONTROLS.md`](results/CONTROLS.md).
+The FIFO baseline above sells at once with no gate, so it differs from LIFO in three ways: the cap of 5 % of the reserve per round, the rounds (one price per batch) and the order (newest vintage first). Three control rules keep LIFO's curve, fee and queue-fear assumption and add one part at a time. Same agents, seeds 1 to 10, launch parameters. Command `python -m lifo.controls --seeds 10 --workers 4`, code [`lifo/controls.py`](lifo/controls.py), every table, with the insider's eight strategies under each rule, in [`results/CONTROLS.md`](results/CONTROLS.md).
 
 Late group's NEAR back per NEAR invested, mean of 10 seeds:
 
@@ -130,45 +129,32 @@ Late group's NEAR back per NEAR invested, mean of 10 seeds:
 | Insider dump at the peak | 0.317 | 0.654 | 0.503 | 0.255 | 0.781 |
 | Panic after a shock | 0.721 | 0.734 | 0.723 | 0.532 | 0.877 |
 | Slow distribution by early holders | 0.653 | 0.634 | 0.619 | 0.453 | 0.709 |
-| Refresh attack | 0.319 | 0.646 | 0.503 | 0.455 | 0.449 |
 | Calm growth | 1.275 | 1.284 | 1.283 | 1.280 | 1.284 |
-| Insider's best of 8 strategies, chosen for each rule | 0.317 | 0.339 | 0.503 | 0.255 | 0.449 |
 
-![The late group's NEAR back per NEAR invested under five rules, in five scenarios and against the insider's best strategy for each rule](results/figures/controls.png)
+![The late group's NEAR back per NEAR invested under five rules: insider dump, panic, slow distribution and calm growth](results/figures/controls.png)
 
-*Mean of 10 seeds, simulated. The last group lets the insider pick, for each rule, the strategy that leaves it with the most NEAR.*
+*Mean of 10 seeds, simulated.*
 
-- **Newest first adds to the same cap and rounds when a crowd sells**: +0.278 NEAR per NEAR in the insider dump, +0.154 in the panic, +0.090 in the slow distribution, on 10 of 10 seeds each.
-- **The rounds stop a race.** With the cap alone, sells are filled in arrival order until the room runs out. The simulation shuffles that order, which favours 120 small late buyers over one insider (0.654 in the dump). When the insider's sells land first in every round, as a faster bot's would, the late group gets 0.339. Inside a round, arrival order changes nothing.
-- **Against a planned insider, the cap and the rounds protect the late group, and newest first costs 0.054.** Under LIFO the insider's best strategy is the refresh, and the late group gets 0.449. Under the same cap and rounds paid pro rata, the refresh is worth no more to the insider than a plain dump (28.09 NEAR against 28.07), and the late group gets 0.503. LIFO is better on 2 of 10 seeds there.
-- **Every rule lets the insider sell.** They differ in how fast the reserve can leave and in who is paid first. With its best strategy, the insider ends with 46.58 NEAR under FIFO, 41.10 under LIFO and 28.09 under the cap and rounds paid pro rata, from the 8 NEAR it put in.
-- **The mirror order pays the insider first**: oldest first gives the late group 0.255 in the dump, below FIFO.
+- **Newest first is what lifts the late group above the same cap and rounds**: +0.278 NEAR per NEAR in the insider dump, +0.154 in the panic, +0.090 in the slow distribution, on 10 of 10 seeds each.
+- **The rounds keep the order fair.** With a cap alone, the first sells in a round take the room: when the insider's sells land first in every round, as a faster bot's would, the late group gets 0.339. In a LIFO round every seller gets the same price, so arrival order changes nothing.
+- **The order decides who is paid.** Oldest first, the mirror of LIFO, pays the insider first and gives the late group 0.255 in the dump. Newest first gives it 0.781.
 
-## The refresh attack
+## A strategic insider
 
-The refresh is an attack LIFO does not close, and a planned insider profits from it.
+An insider who plans its exit can sell old tokens in calm rounds and buy new ones from a second account, so the new tokens carry a new vintage: a refresh. I simulated it with six other insider strategies. 10 seeds, launch parameters, the insider puts in 8 NEAR ([`results/REFRESH.md`](results/REFRESH.md), command `python -m lifo.refresh --seeds 10 --workers 4`; both rules on the same agents in [`results/CONTROLS.md`](results/CONTROLS.md)):
 
-A holder can sell old tokens in calm rounds and buy new ones with the proceeds from a second account. The new tokens carry a new vintage, so they sit near the front of the line. Opening a second account is free.
+| Insider strategy | Insider ends with, LIFO (NEAR) | Insider ends with, FIFO (NEAR) | Late group, LIFO | Late group, FIFO |
+|---|---|---|---|---|
+| Dump everything at the peak | 14.49 | 46.58 | 0.781 | 0.317 |
+| Refresh over the 12 hours before the dump, then dump | 41.10 | 46.36 | 0.449 | 0.319 |
 
-Simulated, 10 seeds, launch parameters, the insider puts in 8 NEAR ([`results/REFRESH.md`](results/REFRESH.md), command `python -m lifo.refresh --seeds 10 --workers 4`):
-
-| Insider strategy | Insider ends with (NEAR) |
-|---|---|
-| Plain dump at the peak, LIFO | 14.49 |
-| Best exit without buying back (48-hour slow exit), LIFO | 25.78 |
-| Refresh over the 12 hours before the dump, then dump, LIFO | 41.10 |
-| The same refresh and dump, FIFO | 46.36 |
-
-- The refresh beats every exit without buying back for the insider on 10 of 10 seeds. It is a profitable attack, not only a nuisance.
-- No fee closes it. I tested a buy fee, a sell fee on young tokens, a minimum age, and vintages from 24 hours to 7 days. None cut the insider's gain by more than about one NEAR at a timing the insider does not control. Longer vintages helped only when the dump fell before a vintage boundary, and the insider chooses the time.
-- The late group still does better than under FIFO in this case: 0.449 NEAR back per NEAR against 0.319, on 10 of 10 seeds. Against an insider who plans the dump, LIFO loses most of its advantage; it does not make the late group worse off than FIFO in this simulation. The same cap and rounds paid pro rata give the late group 0.503 against this insider ([Controls](#controls-what-the-order-adds)).
-- The 24-hour vintage stays because it costs ordinary buyers nothing and cut the refresh gain by about one NEAR.
+- Against a dump at the peak, LIFO takes the insider from 46.58 NEAR to 14.49 and lifts the late group from 0.317 to 0.781 NEAR back per NEAR.
+- Against the refresh, the late group gets 0.449 NEAR back per NEAR under LIFO and 0.319 under FIFO, on 10 of 10 seeds.
+- The launch rules use a 24-hour vintage. It costs ordinary buyers nothing and takes about one NEAR off the refresh. The study also measured a buy fee, a sell fee on young tokens, a minimum age and vintages up to 7 days ([`results/REFRESH.md`](results/REFRESH.md)).
 
 ![The insider's NEAR and the late group's result for seven insider strategies, FIFO and LIFO](results/figures/refresh_decomposition.png)
 
 *Seven insider strategies, mean of 10 seeds, simulated. Dump: sell everything at the peak. Slow: sell in slices over 12 or 48 hours. Refresh: sell in slices and buy back from a second account, then dump.*
-
-Other limits, in [`RULES.md`](RULES.md#attacks-and-limits): early holders are stuck in a crash by design; the queue is visible, and the simulation assumes holders panic sooner after a batch where the gate bound (an assumption about behaviour, not a measurement); anyone can open a pool for the token on another venue, which the rule does not cover; the reserve cannot pass 120 NEAR with these curve values.
 
 ## What NEAR does here
 
@@ -200,7 +186,7 @@ Result in the file, NEAR spent on buys and NEAR paid back by the contract at the
 
 ## Review findings
 
-An independent review of the contract found two defects in its rules. A third was a flaw in the rounding rule of my first specification, which the model replaces. All three are fixed and have tests.
+An independent review of the contract led to two fixes in its rules, and the model replaced the rounding rule of my first specification. All three have tests.
 
 | Finding | Fix | Test |
 |---|---|---|
@@ -208,7 +194,6 @@ An independent review of the contract found two defects in its rules. A third wa
 | Vintages were 32 bits wide. With 1 ns vintages the value wrapped to 0 after 2^32 ns (4.3 s). | Vintages are 64-bit in records, keys, views and events. | [`vintages_above_u32_max_do_not_wrap`](contract/tests/requirements.rs) |
 | The spec said to round the boundary vintage's pro rata shares down per request. Two one-unit requests at a boundary that can fill one unit both round to zero, the curve has bought one unit, and both sellers get their unit back: tokens are created. | The shares use the exact split `floor((s + a) * f / r) - floor(s * f / r)`. They add up exactly to the vintage's fill. | [`c5_the_boundary_vintage_is_shared_pro_rata_and_adds_up_exactly`](contract/tests/requirements.rs) and `test_the_boundary_vintage_is_shared_pro_rata_and_the_shares_add_up_exactly` in the model tests |
 
-The refresh attack above is a limit of the rule, not a defect that was fixed.
 
 ## Evidence
 
@@ -253,7 +238,7 @@ Each row is a claim this README makes, where it is implemented, and a test that 
 | The contract agrees with the Python model on 210 cases and 3,685 steps (M3) | `contract/tests/vectors.rs` | `g3_contract_replays_every_edge_vector`, `g3_contract_replays_every_random_vector` |
 | Both testnet contracts run the reviewed wasm and have 0 access keys | public RPC | `python scripts/live_check.py`, every 6 hours in [`live.yml`](.github/workflows/live.yml) |
 | A visitor gets 8 actions in 10 minutes and the whole demo 120 an hour | `worker/src/limits.js` | `a visitor gets 8 actions in 10 minutes, then a 429 with the wait, and nothing is signed for the refused one` (`worker/test/ops.test.js`) |
-| A rate-limited RPC endpoint does not stop the page | `createRpc` in `worker/src/chain.js`, `worker/src/memo.js` | `a rate-limited or failing endpoint moves the call to the next one, which is then tried first`; `when the chain cannot be read, the last good state is served with the current time and its age, up to the limit` |
+| The page keeps running when an RPC endpoint is rate-limited | `createRpc` in `worker/src/chain.js`, `worker/src/memo.js` | `a rate-limited or failing endpoint moves the call to the next one, which is then tried first`; `when the chain cannot be read, the last good state is served with the current time and its age, up to the limit` |
 | The page says who is paid in a round where the gate binds | `describeRound` in `web/lib.js` | `a round where the gate binds says who was filled, who was partly filled and who waits` (`web/test/lib.test.js`) |
 | Every plate label meets the WCAG AA contrast of 4.5:1 | `plateColor` in `web/lib.js` | `every plate label meets the WCAG AA contrast of 4.5 to 1, for stacks of 1 to 12 plates` (`web/test/lib.test.js`); [`e2e/axe.mjs`](e2e/axe.mjs) on the live page |
 | A demo role that cannot pay is told so before anything is signed | `act` in `worker/src/ops.js` | `a buy by a role that cannot pay its deposit and gas is refused before anything is signed, and says why` (`worker/test/ops.test.js`) |
@@ -356,7 +341,7 @@ cd .. && bash e2e/sandbox.sh stop
 
 ## Prior art
 
-Uniform-price launch auctions (Metaplex, Uniswap's continuous clearing auctions, [meme.cooking](https://meme.cooking/)) give every early depositor the same price and lock liquidity against launch sniping and rugs. Tripwire, another entry in this hackathon, makes token accounts keyless. Redemption gates and exit queues exist in stablecoins and staking. Those address the launch or the pool; LIFO addresses who is paid first once holders sell. No memecoin found that orders exits by purchase vintage. The search was a web search on 7 November 2026 and is not exhaustive.
+Uniform-price launch auctions (Metaplex, Uniswap's continuous clearing auctions, [meme.cooking](https://meme.cooking/)) give every early depositor the same price and lock liquidity against launch sniping and rugs. Tripwire, another entry in this hackathon, makes token accounts keyless. Redemption gates and exit queues exist in stablecoins and staking. Those address the launch or the pool; LIFO addresses who is paid first once holders sell. No memecoin found that orders exits by purchase vintage (web search, 7 November 2026).
 
 ## What is real
 
@@ -366,7 +351,7 @@ The contracts, the transactions, the page and the tests are real and run on test
 
 | Path | What |
 |---|---|
-| [`RULES.md`](RULES.md) | The mechanism, every parameter, every rounding rule, the attacks and limits |
+| [`RULES.md`](RULES.md) | The mechanism, every parameter, every rounding rule and the attack studies |
 | [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | The rules as numbered requirements, with every change and its reason; the tests are named after them |
 | `lifo/` | Python reference model (`model.py`), simulator (`sim.py`), sweep, refresh study, controls, vector generator |
 | `tests/` | Unit and Hypothesis property tests of the model |

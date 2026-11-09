@@ -1,6 +1,6 @@
 # Controls: the same gate, rounds and fee, only the order changed
 
-Simulated. Command: `python -m lifo.controls --seeds 10 --workers 4`. Seeds 1 to 10. Commit `dbd00a6`. Runs: 550, in `results/controls.csv`; runtime 31 s.
+Simulated. Command: `python -m lifo.controls --seeds 10 --workers 4`. Seeds 1 to 10. Commit `afcf4a9`. Runs: 550, in `results/controls.csv`; runtime 40 s.
 Launch rules for every capped rule: cap 500 bps of the reserve per round, round 10 min, vintage 24 h, sell fee 50 bps. The FIFO baseline has the same curve and fee. Every capped rule uses the same queue-fear assumption as LIFO (holders panic at 75 % of their usual threshold after a round where the cap was reached).
 
 ## 1. Late group, NEAR back per NEAR invested
