@@ -35,7 +35,8 @@ export async function route(request, deps) {
     if (!DEPLOYMENTS.includes(d)) return json(400, { error: 'd must be launch or demo' });
     try {
       return json(200, await deps.state(d), { 'cache-control': 'public, max-age=3' });
-    } catch {
+    } catch (e) {
+      console.error(`state ${d}: ${e?.message ?? e}`);
       return json(503, { error: 'the chain could not be read, try again in a moment' });
     }
   }

@@ -1,6 +1,6 @@
 # The LIFO demo server: static page + /api, one Durable Object, one cron. Free plan.
 # Values below are for testnet. For a local run, `.dev.vars` overrides them with sandbox values
-# (see .dev.vars.example); secrets are never written here.
+# (`node scripts/provision.mjs --network sandbox` writes it); secrets are never written here.
 name = "lifo-demo"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
@@ -23,7 +23,8 @@ crons = ["* * * * *"]
 
 [vars]
 NETWORK = "testnet"
-RPC_URL = "https://test.rpc.fastnear.com"
+# Tried in order; a rate limit or a server error moves a call to the next one.
+RPC_URL = "https://test.rpc.fastnear.com,https://near-testnet.drpc.org,https://rpc.testnet.near.org"
 EXPLORER_TX = "https://testnet.nearblocks.io/txns/"
 EXPLORER_ACCOUNT = "https://testnet.nearblocks.io/address/"
 CONTRACT_LAUNCH = "launch.lifo.testnet"

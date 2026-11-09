@@ -81,6 +81,44 @@ test('the rpc client stops at its request budget and reports node errors', async
   assert.equal(calls, 2);
 });
 
+test('a rate-limited or failing endpoint moves the call to the next one, which is then tried first', async () => {
+  const seen = [];
+  const answers = { 'http://a': [429, 200], 'http://b': [200, 200, 200] };
+  const rpc = createRpc('http://a, http://b', async (url) => {
+    seen.push(url);
+    const status = answers[url].shift();
+    return { ok: status === 200, status, json: async () => ({ result: { url } }) };
+  });
+  assert.deepEqual(await rpc.call('status', {}), { url: 'http://b' });
+  assert.deepEqual(await rpc.call('status', {}), { url: 'http://b' });
+  assert.deepEqual(seen, ['http://a', 'http://b', 'http://b']);
+});
+
+test('when every endpoint refuses, the last refusal is reported and each attempt counts against the budget', async () => {
+  let calls = 0;
+  const down = async (url) => {
+    calls++;
+    if (url === 'http://c') throw new Error('network down');
+    return { ok: false, status: 503, json: async () => ({}) };
+  };
+  await assert.rejects(createRpc('http://e,http://c', down).call('status', {}), /network down|rpc http 503/);
+  assert.equal(calls, 2);
+  await assert.rejects(createRpc('http://e,http://f,http://g', down, 2).call('status', {}), /budget/);
+});
+
+test('a node error or a client error is not retried on another endpoint', async () => {
+  const seen = [];
+  const rpc = createRpc('http://h,http://i', async (url) => {
+    seen.push(url);
+    return url === 'http://h' && seen.length === 1
+      ? { ok: true, status: 200, json: async () => ({ error: { message: 'x', data: 'UNKNOWN_ACCOUNT' } }) }
+      : { ok: false, status: 400, json: async () => ({}) };
+  });
+  await assert.rejects(rpc.call('query', {}), /UNKNOWN_ACCOUNT/);
+  await assert.rejects(rpc.call('query', {}), /rpc http 400/);
+  assert.deepEqual(seen, ['http://h', 'http://h']);
+});
+
 test('failures and lifo events are read from the receipts of an outcome', () => {
   const ev = { standard: 'lifo', version: '1.0.0', event: 'buy', data: [{ tokens: '5' }] };
   const out = {

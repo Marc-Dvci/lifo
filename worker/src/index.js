@@ -4,6 +4,7 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import { createRpc, signerFromSecret } from './chain.js';
+import { createMemo } from './memo.js';
 import { act, config, readState, tick } from './ops.js';
 import { route } from './routes.js';
 
@@ -16,18 +17,8 @@ async function signerFor(env, name) {
   return signers.get(name);
 }
 
-const memo = new Map();
-/** A few seconds of cache inside one isolate; concurrent callers share the same request. */
-function cached(key, ttlMs, fn) {
-  const hit = memo.get(key);
-  if (hit && hit.until > Date.now()) return hit.value;
-  const value = fn().catch((e) => {
-    memo.delete(key);
-    throw e;
-  });
-  memo.set(key, { until: Date.now() + ttlMs, value });
-  return value;
-}
+const memo = createMemo();
+const cached = (key, ttlMs, fn) => memo.cached(key, ttlMs, fn);
 
 export class Gate extends DurableObject {
   chain = Promise.resolve();
@@ -83,7 +74,7 @@ export default {
       getLog: async (d) => (await stub.fetch(`https://gate/log?d=${d}`)).json(),
     };
     return route(request, {
-      state: (d) => cached(`state:${d}`, 4000, () => readState(ctx, d)),
+      state: (d) => memo.lastGood(`state:${d}`, 120_000, () => cached(`state:${d}`, 4000, () => readState(ctx, d))),
       act: async (input) => (await stub.fetch('https://gate/act', { method: 'POST', body: JSON.stringify(input) })).json(),
     });
   },

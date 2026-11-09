@@ -137,28 +137,59 @@ export async function signTransaction(signer, tx) {
 
 // --- JSON-RPC -------------------------------------------------------------------------------------------------------
 
+/** The endpoint each list of RPC URLs last succeeded with, shared by the requests an isolate serves. */
+const preferred = new Map();
+
+/** HTTP answers that say "try another node": rate limits and server errors. */
+const RETRY_STATUS = (status) => status === 408 || status === 429 || status >= 500;
+
 /**
  * A small RPC client. `fetchFn` is injectable for tests. `budget` caps the number of requests one invocation makes
- * (the free plan allows 50 external subrequests per invocation).
+ * (the free plan allows 50 external subrequests per invocation). `urls` is one RPC URL or several separated by commas:
+ * a rate limit (429), a server error or a network failure moves the call to the next URL, and the URL that answered is
+ * tried first by the next call. Errors reported by the node itself are not retried.
  */
-export function createRpc(url, fetchFn = fetch, budget = 45) {
+export function createRpc(urls, fetchFn = fetch, budget = 45) {
+  const list = String(urls).split(',').map((u) => u.trim()).filter(Boolean);
+  const key = list.join(',');
   let used = 0;
   let id = 0;
-  async function call(method, params) {
+  async function post(url, method, params) {
     if (++used > budget) throw new Error('subrequest budget used');
-    const res = await fetchFn(url, {
+    return fetchFn(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: String(++id), method, params }),
     });
-    if (!res.ok) throw new Error(`rpc http ${res.status}`);
-    const body = await res.json();
-    if (body.error) {
-      const e = new Error(body.error.data && typeof body.error.data === 'string' ? body.error.data : body.error.message || 'rpc error');
-      e.rpc = body.error;
-      throw e;
+  }
+  async function call(method, params) {
+    const first = preferred.get(key) ?? 0;
+    let last;
+    for (let i = 0; i < list.length; i++) {
+      const at = (first + i) % list.length;
+      let res;
+      try {
+        res = await post(list[at], method, params);
+      } catch (e) {
+        if (/budget/.test(e.message)) throw e;
+        last = e;
+        continue;
+      }
+      if (!res.ok) {
+        last = new Error(`rpc http ${res.status}`);
+        if (RETRY_STATUS(res.status)) continue;
+        throw last;
+      }
+      preferred.set(key, at);
+      const body = await res.json();
+      if (body.error) {
+        const e = new Error(body.error.data && typeof body.error.data === 'string' ? body.error.data : body.error.message || 'rpc error');
+        e.rpc = body.error;
+        throw e;
+      }
+      return body.result;
     }
-    return body.result;
+    throw last;
   }
   return {
     call,
