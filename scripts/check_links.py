@@ -2,8 +2,7 @@
 
     python scripts/check_links.py
 
-Offline and deterministic, so it runs in CI. External links are checked in a browser before submitting.
-Links that still hold a {{PLACEHOLDER}} are left to scripts/check_placeholders.py.
+Offline and deterministic, so it runs in CI. External links are checked by lychee in CI.
 """
 
 from __future__ import annotations
@@ -51,7 +50,7 @@ def main() -> int:
     for md in markdown_files():
         for m in LINK.finditer(visible(md.read_text(encoding="utf-8"))):
             target = next(g for g in m.groups() if g)
-            if "{{" in target or re.match(r"^[a-z][a-z0-9+.-]*:", target, flags=re.I):
+            if re.match(r"^[a-z][a-z0-9+.-]*:", target, flags=re.I):
                 continue
             path, _, frag = target.partition("#")
             dest = (md.parent / path).resolve() if path else md

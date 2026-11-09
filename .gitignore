@@ -28,3 +28,6 @@ target/
 # Worker local state and secrets
 .dev.vars
 .wrangler/
+
+# Keys written by scripts/provision.mjs, and local run outputs
+.guest/
