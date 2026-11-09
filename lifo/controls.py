@@ -228,15 +228,13 @@ def figure(rows: list[dict[str, Any]]) -> None:
         ("insider\ndump", "insider_dump"),
         ("panic", "panic"),
         ("slow\ndistribution", "slow_distribution"),
-        ("refresh\nattack", "refresh_attack"),
         ("calm", "calm"),
-        ("insider's best\nstrategy", ""),
     ]
-    fig, ax = plt.subplots(figsize=(9, 3.6))
+    fig, ax = plt.subplots(figsize=(8, 3.6))
     width = 0.16
     for k, r in enumerate(RULES):
         xs = [i + (k - 2) * width for i in range(len(groups))]
-        ys = [t.m(sc or t.best(r)[1], r, "late_result") for _, sc in groups]
+        ys = [t.m(sc, r, "late_result") for _, sc in groups]
         ax.bar(xs, ys, width, color=colors[r], label=LABELS[r])
     ax.set_xticks(range(len(groups)), [g for g, _ in groups])
     ax.set_ylabel("late group, NEAR back\nper NEAR invested")
