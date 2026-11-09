@@ -5,14 +5,19 @@
 [![tests](https://github.com/Marc-Dvci/lifo/actions/workflows/tests.yml/badge.svg)](https://github.com/Marc-Dvci/lifo/actions/workflows/tests.yml)
 [![live](https://github.com/Marc-Dvci/lifo/actions/workflows/live.yml/badge.svg)](https://github.com/Marc-Dvci/lifo/actions/workflows/live.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![tests](https://img.shields.io/badge/tests-81%20model%20%C2%B7%2036%20contract%20%C2%B7%2046%20web-2ea44f)](#evidence)
+[![model coverage](https://img.shields.io/badge/model%20coverage-100%25%20lines%20%C2%B7%20100%25%20branches-2ea44f)](#evidence)
+[![demo](https://img.shields.io/badge/demo-lifo--amt.pages.dev-ff3d7f)](https://lifo-amt.pages.dev)
 
-[![The LIFO page: the stack of plates, the round clock, the gate and the pool](docs/screens/page-demo-1440.png)](https://lifo-amt.pages.dev)
+[![The live LIFO page during a crash on testnet: the late buyers and the insider ask to sell, their plates turn hatched and the gate binds at 9.57 NEAR asked against 0.623 NEAR; the round closes and only the newest plate, 648, shrinks while the older plates come back whole](docs/screens/crash.gif)](https://lifo-amt.pages.dev)
+
+*The live page during round 1944 on testnet (sped up while the sells arrive). The newest plate is paid; the insider's plate 2, at the bottom, waits.*
 
 | Live page | Track | What NEAR does here | Headline result (simulated) |
 |---|---|---|---|
 | [lifo-amt.pages.dev](https://lifo-amt.pages.dev) | Memecoins With Mechanics (`memecoins`) | An NEP-141 token whose sell rule is in a contract with no access keys, on testnet | Insider dump, 10 seeds: the late group gets 0.781 NEAR back per NEAR under LIFO, 0.317 under a FIFO baseline |
 
-[For judges](#for-judges) · [See it work](#see-it-work) · [The problem](#the-problem) · [How it works](#how-it-works) · [Results](#results) · [The refresh attack](#the-refresh-attack) · [What NEAR does here](#what-near-does-here) · [Review findings](#review-findings) · [Evidence](#evidence) · [Run it](#run-it)
+[For judges](#for-judges) · [See it work](#see-it-work) · [The problem](#the-problem) · [How it works](#how-it-works) · [Results](#results) · [The refresh attack](#the-refresh-attack) · [What NEAR does here](#what-near-does-here) · [Review findings](#review-findings) · [Evidence](#evidence) · [Claims](#claims-and-the-tests-that-pin-them) · [Run it](#run-it)
 
 I enter solo. The repository's history starts on 7 November 2026 (`git log --reverse`), and everything in it was written for this hackathon.
 
@@ -22,7 +27,7 @@ Links go to the code at the release tag `v1.0.0`.
 
 | Criterion | Where it is answered |
 |---|---|
-| Technical implementation | The sell rule is in the contract, not in a server. Settlement: [`settle_finished`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/src/lib.rs#L816-L875) (the gate, newest vintage first) and [`claim_settled`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/src/lib.rs#L877-L951). 256-bit curve and gate arithmetic: [`gate_fill`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/src/math.rs#L50-L57). The contract replays the Python model's vectors: [`vectors.rs`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/tests/vectors.rs#L308-L362), 210 cases and 3,685 steps. Gas per settlement: 1.86 to 3.41 Tgas ([Evidence](#evidence)). |
+| Technical implementation | The sell rule is in the contract, not in a server. Settlement: [`settle_finished`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/src/lib.rs#L816-L875) (the gate, newest vintage first) and [`claim_settled`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/src/lib.rs#L877-L951). 256-bit curve and gate arithmetic: [`gate_fill`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/src/math.rs#L50-L57). The contract replays the Python model's vectors: [`vectors.rs`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/tests/vectors.rs#L308-L362), 210 cases and 3,685 steps. Every rule is a numbered requirement ([`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md)) and the contract tests are named after them. Gas per settlement: 1.86 to 3.41 Tgas ([Evidence](#evidence)). |
 | Design | A page that shows the mechanic as a stack of plates, one per purchase period, with the round clock and the gate: [`web/index.html`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/web/index.html), [`web/app.js`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/web/app.js). Every action on it is a real testnet transaction ([See it work](#see-it-work)). |
 | Impact | Who is left holding the bag in a crash ([The problem](#the-problem)), measured on the same agents and seeds under LIFO and FIFO ([Results](#results)), with the attack that LIFO does not stop stated with its numbers ([The refresh attack](#the-refresh-attack)). |
 | Originality | Exits are ordered by the vintage of the tokens, the date they were bought from the market. No memecoin found that orders exits by purchase vintage ([Prior art](#prior-art)). Token lots keep their vintage through transfers, and a refund after `ft_transfer_call` cannot make a token newer: [`refund`](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/src/lib.rs#L990-L1034), [its tests](https://github.com/Marc-Dvci/lifo/blob/v1.0.0/contract/tests/requirements.rs#L371-L460). |
@@ -46,13 +51,17 @@ Open [lifo-amt.pages.dev](https://lifo-amt.pages.dev). It is the same contract c
 2. Watch the plates. The newest plate is on top and is paid first. Hatched parts are waiting to be sold in the round.
 3. When a round ends, the gate settles it. If sellers ask for more than 5 % of the reserve, the newest plates are paid and the older ones wait.
 
-Screenshots of the live page at 1440 px, taken with headless Chromium on 8 November 2026:
+The screenshots below are the live page at 2x in headless Chromium on 9 November 2026, during a crash played through the page's own buttons ([`results/crash-page.json`](results/crash-page.json) lists every transaction). The late buyer and the panic seller bought plate 648. Then, in round 1944, the insider asked to sell everything it holds (plate 2), and the late buyer and the panic seller asked to sell everything they hold (plates 648, 643 and 4).
 
-![The live page: three plates (plate 4 newest, plate 2 oldest), the round clock, the gate and the pool](docs/screens/page-demo-1440.png)
+Before the round ends: every plate being sold is hatched, and 9.57 NEAR is asked against a limit of 0.623 NEAR.
 
-![The live page, lower part: the role buttons, the settled rounds 14 and 15 and the latest actions, each with a transaction link](docs/screens/page-demo-lower-1440.png)
+![The live page before round 1944 ends: plates 648, 643 and 4 fully hatched, plate 2 half hatched (the insider's part), and the gate meter far past its limit](docs/screens/gate-binds.png)
 
-The lower screenshot shows the result of the scripted crash on testnet: in round 14 the gate let 0.499 NEAR leave the pool, and it went to plate 4 (the late wave) while plate 2 (the insider) waited; the insider was paid 0.474 NEAR in round 15.
+After the Worker's timer settled the round: 0.623 NEAR left the reserve, all of it to plate 648, which shrank from 37.5 M to 26.1 M LIFO. Plates 643, 4 and 2 got nothing this round, and their tokens came back with their vintages.
+
+![The live page after round 1944 settled: plate 648 smaller, the other plates whole again, and the gate meter empty](docs/screens/round-settled.png)
+
+![The page's log: round 1944, 0.623 NEAR paid, the gate bound with plate 648 at 30 %, plates 643, 4 and 2 wait; and the latest actions, each with its transaction link](docs/screens/logs.png)
 
 ## The problem
 
@@ -142,7 +151,7 @@ Other limits, in [`RULES.md`](RULES.md#attacks-and-limits): early holders are st
 
 Wasm: 213,191 bytes, SHA-256 `de5cb631a9759d245d3651e30dd5eff4f5d3066a4905d5aa8a35bd62c492675a`. Panic messages of dependencies carry the build machine's paths, so a build on another machine can give another hash; CI builds the wasm, prints both hashes and checks the size within 5 %.
 
-Not NEAR-specific but part of the page: a Cloudflare Worker (free plan) serves `/api`, signs for five demo accounts with ed25519 keys held as secrets, and settles rounds once a minute. Rate limits are in [`worker/src/limits.js`](worker/src/limits.js).
+Not NEAR-specific but part of the page: a Cloudflare Worker (free plan) serves `/api`, signs for five demo accounts with ed25519 keys held as secrets, and settles rounds once a minute. It reads the chain through three public testnet RPC endpoints and moves to the next one on a rate limit or a server error ([`worker/src/chain.js`](worker/src/chain.js)). Rate limits on visitors are in [`worker/src/limits.js`](worker/src/limits.js); deployment: [`worker/DEPLOY.md`](worker/DEPLOY.md).
 
 ### The scripted crash on testnet
 
@@ -180,11 +189,37 @@ Every figure comes from a command in this repository.
 | Lint, format, types | ruff, `ruff format --check` and strict mypy pass | `ruff check .`, `mypy` |
 | Contract tests | 34 unit tests named by requirement, 2 replay tests | `cargo test -p lifo -j 4 -q` |
 | Vectors replayed by the contract | `edge.json`: 10 cases, 134 steps; `random.json`: 200 cases, 3,551 steps. After every step the contract compares the result or the error, the reserve, the supply, every account's lots and payouts, and the open requests | [`contract/tests/vectors.rs`](contract/tests/vectors.rs) |
-| Worker and page tests | 27 and 14 passed | `node --test` (see [Run it](#run-it)) |
+| Worker and page tests | 32 and 14 passed | `node --test` (see [Run it](#run-it)) |
 | Sandbox checks | 21 passed, 0 failed (initialisation, deposits on every method, source metadata) | [`results/e2e-checks.md`](results/e2e-checks.md) |
 | Gas, local sandbox (nearcore 2.14.0) | `settle` 1.86, 1.87, 2.36 and 3.41 Tgas for 1, 1, 16 and 48 vintages (1, 48, 48 and 48 requests); `claim` 2.26 to 2.43 Tgas on average; `buy` 3.16 to 3.20 Tgas | [`results/gas.md`](results/gas.md) |
 | Scripted crash, testnet | 14 transactions | [`results/crash-testnet.json`](results/crash-testnet.json) |
+| Crash through the page's buttons, testnet | 9 transactions; round 1944 paid 0.623 NEAR, all to the newest plate | [`results/crash-page.json`](results/crash-page.json) |
 | Both contracts, public RPC | code hash equals the reviewed wasm; 0 access keys | `python scripts/live_check.py` |
+
+## Claims and the tests that pin them
+
+Each row is a claim this README makes, where it is implemented, and a test that fails if it stops being true. Requirement codes refer to [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md); contract tests are in [`contract/tests/requirements.rs`](contract/tests/requirements.rs).
+
+| Claim | Where | Test |
+|---|---|---|
+| When the gate binds, newer vintages are filled before any older one (C5) | `settle_finished` in `contract/src/lib.rs` | `c5_newer_vintage_filled_before_older` |
+| At most 5 % of the reserve leaves per round; the fill is the largest amount under the cap (C3) | `gate_fill` in `contract/src/math.rs` | `c3_gate_fill_is_the_largest_amount_under_the_cap`; Hypothesis `test_the_gate_fill_is_the_exact_largest_amount_under_the_cap` |
+| In a calm round every request is filled in full (C4) | `settle_finished` | `c4_a_calm_epoch_fills_every_request` |
+| Every filled token in a round gets the same price (C6) | `claim_settled` | `c6_every_filled_token_gets_the_same_price` |
+| Unfilled tokens come back with their vintage (C7) | `claim_settled` | `c7_unfilled_tokens_come_back_with_their_vintage_and_no_place_in_line` |
+| The boundary vintage is shared pro rata and the shares add up exactly (C5) | `settle_finished`, `claim_settled` | `c5_the_boundary_vintage_is_shared_pro_rata_and_adds_up_exactly` |
+| Vintages travel with the tokens through transfers (B2) | `ft_transfer` | `b2_received_tokens_keep_their_vintages_and_merge_with_equal_ones` |
+| No path, refunds included, makes a token newer (B4', B5) | `refund` | `b5_no_path_gives_tokens_a_newer_vintage` and the four `b4_` tests |
+| Splitting across accounts changes payouts by rounding only (B6) | lots and settlement | `b6_splitting_across_accounts_changes_the_payout_by_rounding_only`; Hypothesis `test_splitting_tokens_across_accounts_changes_what_they_are_paid_only_by_rounding` |
+| A settlement costs the same for 1 or 48 sellers (C8) | per-vintage aggregates | `c8_settlement_cost_does_not_grow_with_the_number_of_sellers`; [`results/gas.md`](results/gas.md) |
+| No parameter can change after `new`, and there is no admin (A1) | `new` | `a1_parameters_never_change`, `a1_initialisation_checks_every_parameter` |
+| The reserve always covers buying back the whole supply (A5) | curve arithmetic | `a5_reserve_covers_buying_back_the_whole_supply` |
+| Events are enough to rebuild every account's lots (D2) | NEP-297 events | `d2_events_rebuild_every_account_lots` |
+| The contract agrees with the Python model on 210 cases and 3,685 steps (M3) | `contract/tests/vectors.rs` | `g3_contract_replays_every_edge_vector`, `g3_contract_replays_every_random_vector` |
+| Both testnet contracts run the reviewed wasm and have 0 access keys | public RPC | `python scripts/live_check.py`, every 6 hours in [`live.yml`](.github/workflows/live.yml) |
+| A visitor gets 8 actions in 10 minutes and the whole demo 120 an hour | `worker/src/limits.js` | `a visitor gets 8 actions in 10 minutes, then a 429 with the wait, and nothing is signed for the refused one` (`worker/test/ops.test.js`) |
+| A rate-limited RPC endpoint does not stop the page | `createRpc` in `worker/src/chain.js`, `worker/src/memo.js` | `a rate-limited or failing endpoint moves the call to the next one, which is then tried first`; `when the chain cannot be read, the last good state is served with the current time and its age, up to the limit` |
+| The page says who is paid in a round where the gate binds | `describeRound` in `web/lib.js` | `a round where the gate binds says who was filled, who was partly filled and who waits` (`web/test/lib.test.js`) |
 
 ## Run it
 
@@ -256,7 +291,7 @@ node --test "worker/test/*.test.js"
 node --test "web/test/*.test.js"
 ```
 
-They end with `pass 27` and `pass 14`.
+They end with `pass 32` and `pass 14`.
 
 **7. The testnet contracts and the live page:**
 
@@ -294,6 +329,7 @@ The contracts, the transactions, the page and the tests are real and run on test
 | Path | What |
 |---|---|
 | [`RULES.md`](RULES.md) | The mechanism, every parameter, every rounding rule, the attacks and limits |
+| [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | The rules as numbered requirements, with every change and its reason; the tests are named after them |
 | `lifo/` | Python reference model (`model.py`), simulator (`sim.py`), sweep, refresh study, vector generator |
 | `tests/` | Unit and Hypothesis property tests of the model |
 | `contract/` | Rust NEAR contract (near-sdk 5) and its tests; see [`contract/README.md`](contract/README.md) |

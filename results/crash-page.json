@@ -1,0 +1,84 @@
+{
+ "what": "A crash played through the buttons of the public page (https://lifo-amt.pages.dev, demo speed) in a headless browser on 9 November 2026, on demo.lifo.testnet. Every action is a testnet transaction signed by the demo Worker; the Worker's one-minute timer settled the round and claimed.",
+ "steps": "Late buyer buys 1 NEAR and panic seller buys 1 NEAR (plate 648). In round 1944 the insider asks to sell everything (plate 2), then the late buyer and the panic seller ask to sell everything (plates 648, 643 and 4).",
+ "round": {
+  "epoch": "1944",
+  "gate_cap_near": "0.622686",
+  "paid_near": "0.622686",
+  "bound": true,
+  "requests": 3,
+  "requested_tokens_by_plate": {
+   "2": "76141886986841386913177457",
+   "4": "79010274165934951072147235",
+   "643": "29526935212217614178180427",
+   "648": "37493889664034488649273850"
+  },
+  "filled_tokens_by_plate": {
+   "2": "0",
+   "4": "0",
+   "643": "0",
+   "648": "11346683358250553472719745"
+  },
+  "reserve_after_near": "11.831036",
+  "settle_tx": "Ese2jkSUmWb7j9dc4gGE1S7DrQiBZ2LcPSsimjx8zAVU"
+ },
+ "result": "The gate bound: 0.623 NEAR left the reserve and all of it paid plate 648 (30 % of its requested tokens filled); plates 643, 4 and 2 got nothing in this round and their tokens came back with their vintages.",
+ "transactions": [
+  {
+   "role": "late",
+   "action": "buy",
+   "tx": "9m9bTzp8ZNf3YG4mehjbKD7LiSastTweHip1N19Zs6dw",
+   "vintage": 648,
+   "deposit_near": "1.000000"
+  },
+  {
+   "role": "panic",
+   "action": "buy",
+   "tx": "9cDek2pBwqsyGNq9YurFEpHeKwZgDjGN1nXKPnmuBD9Z",
+   "vintage": 648,
+   "deposit_near": "1.000000"
+  },
+  {
+   "role": "insider",
+   "action": "sell",
+   "tx": "4X2KZLsp7DkvCksEjRgNJD5JNbDjjA29fczzbhwgTzQj",
+   "tokens": "76141886986841386913177457",
+   "epoch": "1944"
+  },
+  {
+   "role": "late",
+   "action": "sell",
+   "tx": "CrKWGGQKYHy3XdF7FQgDCaA6CbrGZpnvNMYMfh1zMz71",
+   "tokens": "75910940681022202833653540",
+   "epoch": "1944"
+  },
+  {
+   "role": "panic",
+   "action": "sell",
+   "tx": "5PhriyFpkdXWcZTxmZzYnyuYprAwaHVu59dbGYPK3Pgs",
+   "tokens": "70120158361164851065947972",
+   "epoch": "1944"
+  },
+  {
+   "role": "crank",
+   "action": "settle",
+   "tx": "Ese2jkSUmWb7j9dc4gGE1S7DrQiBZ2LcPSsimjx8zAVU"
+  },
+  {
+   "role": "late",
+   "action": "claim",
+   "tx": "HRTF2JnJJWhRwXd8dBFFCb6sxVWz6UEWu4b4NTrcogvC"
+  },
+  {
+   "role": "insider",
+   "action": "claim",
+   "tx": "FTYLKTHJxtv5PFMYA9dEkTxeHTVRVqLLeqAFjqZfsoC6"
+  },
+  {
+   "role": "panic",
+   "action": "claim",
+   "tx": "FM2N77PTMfCb7scPtDdZvbhTYrfc8CRaXuvM9BGEYYef"
+  }
+ ],
+ "explorer": "https://testnet.nearblocks.io/txns/<tx>"
+}

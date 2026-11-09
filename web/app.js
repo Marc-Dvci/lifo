@@ -215,7 +215,9 @@ function renderYou() {
   const buy = $('buy');
   const sell = $('sell');
   buy.replaceChildren(`Buy with ${plan.buy_near} NEAR`, el('small', '', `as ${ROLE_LABEL[role].toLowerCase()}`));
-  sell.replaceChildren(`Sell ${plan.sell_pct} % of its plates`, el('small', '', held > 0n ? `${fmtTokens(held)} LIFO held` : 'nothing held yet'));
+  const waiting = (state.accounts[role].view?.pending ?? []).length > 0;
+  const heldText = held > 0n ? `${fmtTokens(held)} LIFO held` : waiting ? 'all of it is waiting to be sold' : 'nothing held yet';
+  sell.replaceChildren(`Sell ${plan.sell_pct} % of its plates`, el('small', '', heldText));
   buy.disabled = busy;
   sell.disabled = busy || held === 0n;
 }

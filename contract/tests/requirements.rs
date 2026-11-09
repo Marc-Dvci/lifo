@@ -1,4 +1,4 @@
-//! Unit tests named by requirement (A, B, C, D in `requirements.md`, launch rules of `requirements-v2.md`), plus the
+//! Unit tests named by requirement (groups A, B, C and D of `docs/REQUIREMENTS.md`, with B4' and S5'), plus the
 //! contract-only rules: storage (NEP-145) and deposits.
 
 mod common;
