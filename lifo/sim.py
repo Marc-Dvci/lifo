@@ -4,6 +4,8 @@
 
 Agents decide with floats (arrival times, sizes, panic thresholds); every balance and payout is the model's integers.
 The FIFO baseline is the same curve and the same sell fee, with sells executed at once, in arrival order, no gate.
+Three control markets (KINDS) keep LIFO's gate, rounds and fee and change one thing at a time; lifo/controls.py
+compares them.
 """
 
 from __future__ import annotations
@@ -13,7 +15,20 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from lifo.model import DAY, HOUR, NEAR, TOKEN, Lifo, LifoError, Params, default_params, sell_paid
+from lifo.model import (
+    BPS,
+    DAY,
+    E_BALANCE,
+    HOUR,
+    NEAR,
+    TOKEN,
+    Lifo,
+    LifoError,
+    Params,
+    default_params,
+    gate_fill,
+    sell_paid,
+)
 
 DAYS = 60
 PEAK_DAY = 20  # the late wave buys in the three days before it; the dump, the shock or nothing happens then
@@ -21,7 +36,9 @@ CRASH_WINDOW = 2 * DAY  # payouts by vintage are measured over this window after
 QUEUE_FEAR = 0.75  # assumed: when the last batch hit the gate, holders panic at 75 % of their usual threshold
 SCENARIOS = ("calm", "insider_dump", "panic", "slow_distribution", "refresh_attack")
 EXIT_SCENARIOS = ("slow_exit", "slow_exit_48", "slow_after", "slow_after_48")  # slices, never bought back
-ALL_SCENARIOS = SCENARIOS + EXIT_SCENARIOS + ("refresh_early",)
+ALL_SCENARIOS = SCENARIOS + EXIT_SCENARIOS + ("refresh_early", "dump_first")
+# "dump_first": the insider dump, with the insider's sells landing first in every round (a faster bot). Under the
+# rules with rounds the order inside a round changes nothing; under "cap" it decides who gets the room.
 REFRESHERS = ("refresh_attack", "refresh_early")
 # When the insider sells in slices: (hours from the peak at which it starts, hours it spreads the sales over).
 WINDOWS = {
@@ -53,6 +70,85 @@ class FifoMarket(Lifo):
         self.supply -= amount
         self.paid_out[account] = self.paid_out.get(account, 0) + paid
         return paid, portions
+
+
+class CapMarket(FifoMarket):
+    """Control "cap": LIFO's gate without its rounds. Sells execute at once at the curve's price, in arrival order,
+    until GATE_BPS of the reserve at the start of the round has left; the rest of a sell stays with its owner."""
+
+    round: int
+    room: int
+    selling_now: bool
+    bound_now: bool
+    last_bound: bool  # whether the cap was reached in the last round that had sells (what holders see)
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.round, self.room = -1, 0
+        self.selling_now = self.bound_now = self.last_bound = False
+
+    def start_round(self, now: int) -> bool:
+        """Opens the round of `now` if it is new. Returns True when the round that just closed reached the cap."""
+        e = self.epoch(now)
+        if e == self.round:
+            return False
+        closed_bound = self.selling_now and self.bound_now
+        if self.selling_now:
+            self.last_bound = self.bound_now
+        self.round, self.room = e, self.reserve * self.params.gate_bps // BPS
+        self.selling_now = self.bound_now = False
+        return closed_bound
+
+    def sell_now(self, account: str, amount: int, now: int) -> tuple[int, list[tuple[int, int]]]:
+        self.start_round(now)
+        self.selling_now = True
+        most = gate_fill(self.x, self.y, self.room, self.params.sell_fee_bps)
+        if most is not None and amount > most:
+            amount, self.bound_now = most, True
+        if amount <= 0:
+            return 0, []
+        paid, portions = super().sell_now(account, amount, now)
+        self.room -= paid
+        return paid, portions
+
+
+class ProRataMarket(Lifo):
+    """Control "cap_round": LIFO's gate, rounds and fee, with every requested vintage filled in the same proportion."""
+
+    def _fill(self, requested: dict[int, int], left: int) -> dict[int, int]:
+        total, before, filled = sum(requested.values()), 0, {}
+        for v in sorted(requested):
+            filled[v] = (before + requested[v]) * left // total - before * left // total
+            before += requested[v]
+        return filled
+
+
+class OldestFirstMarket(Lifo):
+    """Control "cap_round_oldest": LIFO's gate, rounds and fee, in the mirror order. Vintages are filled oldest first,
+    and tokens leave an account oldest first, so that a seller always offers the tokens this order pays first."""
+
+    def _fill(self, requested: dict[int, int], left: int) -> dict[int, int]:
+        filled = {}
+        for v in sorted(requested):
+            filled[v] = min(requested[v], left)
+            left -= filled[v]
+        return filled
+
+    def _take(self, account: str, amount: int, max_vintage: int | None = None) -> list[tuple[int, int]]:
+        lots = self.lots.get(account, [])
+        if sum(a for v, a in lots if max_vintage is None or v <= max_vintage) < amount:
+            raise LifoError(E_BALANCE)
+        return self._take_oldest(account, amount)  # the eligible lots are the oldest ones
+
+
+# Every rule the simulation can run, on the same curve, fee and agents.
+KINDS: dict[str, type[Lifo]] = {
+    "fifo": FifoMarket,
+    "cap": CapMarket,
+    "cap_round": ProRataMarket,
+    "cap_round_oldest": OldestFirstMarket,
+    "lifo": Lifo,
+}
 
 
 @dataclass
@@ -115,7 +211,7 @@ def draw_agents(scenario: str, seed: int, steps_per_day: int) -> Agents:
 @dataclass
 class Run:
     scenario: str
-    kind: str  # "fifo" or "lifo"
+    kind: str  # a key of KINDS
     params: Params
     seed: int
     price: list[float] = field(default_factory=list)
@@ -135,10 +231,12 @@ class Run:
 def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: float = QUEUE_FEAR) -> Run:
     if scenario not in ALL_SCENARIOS:
         raise ValueError(scenario)
+    if kind not in KINDS:
+        raise ValueError(kind)
     steps_per_day = DAY // params.epoch_length
     steps = DAYS * steps_per_day
     agents = draw_agents(scenario, seed, steps_per_day)
-    market: Lifo = FifoMarket(params, transactional=False) if kind == "fifo" else Lifo(params, transactional=False)
+    market: Lifo = KINDS[kind](params, transactional=False)
     run = Run(scenario, kind, params, seed)
     names = [f"{g}{i}" for i, g in enumerate(agents.group)]
     index = {name: i for i, name in enumerate(names)}
@@ -198,10 +296,13 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
         else:
             assert isinstance(market, FifoMarket)
             paid, portions = market.sell_now(account, amount, now)
-            credit(account, paid, amount)
+            sold = sum(a for _, a in portions)  # the cap control may sell less than asked
+            if not sold:
+                return
+            credit(account, paid, sold)
             if step >= peak_step and step < crash_end:
                 for v, a in portions:
-                    run.crash_paid_by_vintage[v] = run.crash_paid_by_vintage.get(v, 0.0) + paid * a / amount / NEAR
+                    run.crash_paid_by_vintage[v] = run.crash_paid_by_vintage.get(v, 0.0) + paid * a / sold / NEAR
 
     for step in range(steps):
         now = params.launch_time + step * params.epoch_length
@@ -225,6 +326,9 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
                     continue
                 credit(account, sum(c.paid for c in claims), sum(c.filled for c in claims))
             pending = {a for a in pending if market.unclaimed_ids.get(a)}
+        if isinstance(market, CapMarket):
+            run.gate_bound_epochs += int(market.start_round(now))
+            last_bound = market.last_bound
         price = (market.x / NEAR) / (market.y / TOKEN)
         # 2. Arrivals buy.
         for i in by_step.get(step, []):
@@ -240,13 +344,13 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
             peak[i] = max(peak[i], price)
         # 3. Who wants out this epoch.
         peak = np.where(holding, np.maximum(peak, price), peak)
-        fear = queue_fear if (lifo and last_bound) else 1.0
+        fear = queue_fear if (kind != "fifo" and last_bound) else 1.0  # the same assumption for every capped rule
         theta = agents.theta * fear
         if scenario == "panic" and peak_step <= step < peak_step + steps_per_day:
             theta = theta * 0.5
         want = holding & ~selling & ((price < peak * (1 - theta)) | (agents.hold_until <= step))
         if step == peak_step:
-            if scenario in ("insider_dump",) + REFRESHERS:
+            if scenario in ("insider_dump", "dump_first") + REFRESHERS:
                 want[insider] = True
             if scenario == "panic":
                 rumour = np.flatnonzero(early_mask)[::2]
@@ -281,6 +385,9 @@ def simulate(scenario: str, kind: str, params: Params, seed: int, queue_fear: fl
         # 5. Sellers ask for everything they hold, every epoch until they are out (no carry-over in LIFO).
         sellers = np.flatnonzero(selling).tolist()
         order_rng.shuffle(sellers)
+        if scenario == "dump_first" and insider in sellers:
+            sellers.remove(insider)
+            sellers.insert(0, insider)
         for i in sellers:
             for account in [names[i], fresh] if i == insider else [names[i]]:
                 sell(account, market.sellable(account, now), step, now)

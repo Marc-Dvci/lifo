@@ -453,10 +453,7 @@ class Lifo:
         bound = max_fill is not None and total > max_fill
         left = min(total, max_fill) if max_fill is not None else total
         total_filled = left
-        filled = {}
-        for v in sorted(requested, reverse=True):
-            filled[v] = min(requested[v], left)
-            left -= filled[v]
+        filled = self._fill(requested, left)
         gross_paid = sell_paid(self.x, self.y, total_filled, fee)
         paid = self.payout(filled, e, gross_paid)  # the young fee (M2) never leaves the reserve
         eff = total_filled * BPS - sum(a for v, a in filled.items() if self.is_young(e, v)) * self.params.young_fee_bps
@@ -482,6 +479,14 @@ class Lifo:
         self.open_epoch = None
         self.open_requested = {}
         self.open_count = 0
+
+    def _fill(self, requested: dict[int, int], left: int) -> dict[int, int]:
+        """C5. Fills `left` tokens of the requested vintages, newest first; older vintages get what remains."""
+        filled = {}
+        for v in sorted(requested, reverse=True):
+            filled[v] = min(requested[v], left)
+            left -= filled[v]
+        return filled
 
     def _claim_settled(self, account: str) -> list[Claim]:
         claims = []
